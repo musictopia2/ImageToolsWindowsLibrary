@@ -1,0 +1,11 @@
+﻿@if (!string.IsNullOrEmpty(CroppedImageData))
+{
+    <div style="@GetContainerStyle()">
+        <img src="@CroppedImageData" style="max-width: 100%; display: block;" />
+        <div class="highlight-overlay" style="@GetHighlightStyle()"></div>
+    </div>
+}
+else
+{
+    <p>No image to show.</p>
+}
