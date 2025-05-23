@@ -5,4 +5,5 @@ public class ImageHighlightState
     public Rectangle CropArea { get; set; }
     public Rectangle OriginalHighlight { get; set; }
     public Rectangle CurrentHighlight { get; set; }
+    public bool Completed { get; set; }
 }
