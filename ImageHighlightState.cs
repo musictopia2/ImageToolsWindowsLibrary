@@ -6,4 +6,9 @@ public class ImageHighlightState
     public Rectangle OriginalHighlight { get; set; }
     public Rectangle CurrentHighlight { get; set; }
     public bool Completed { get; set; }
+    /// <summary>
+    /// Optional description for labeling regions (e.g., "First Region", "Second Region").
+    /// Useful for internal tools and region tracking.
+    /// </summary>
+    public string Description { get; set; } = "";
 }
