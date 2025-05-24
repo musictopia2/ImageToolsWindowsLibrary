@@ -12,6 +12,9 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
     public string Height { get; set; } = "95vh";
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Width { get; set; } = "50vw";
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public EventCallback<Rectangle> OnHighlightChanged { get; set; } // notify parent
 
     [Parameter]
