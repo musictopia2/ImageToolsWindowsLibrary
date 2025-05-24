@@ -1,8 +1,12 @@
 ﻿@if (!string.IsNullOrEmpty(CroppedImageData))
 {
-    <div style="@GetContainerStyle()">
-        <img src="@CroppedImageData" style="max-width: 100%; display: block;" />
-        <div class="highlight-overlay" style="@GetHighlightStyle()"></div>
+    <div style="height: @Height; overflow:auto;"
+        @ref="_element"
+    >
+        <div style="@GetContainerStyle()">
+            <img src="@CroppedImageData" style="max-width: 100%; display: block;" />
+            <div class="highlight-overlay" style="@GetHighlightStyle()"></div>
+        </div>
     </div>
 }
 else

@@ -1,10 +1,15 @@
+using System.Drawing.Drawing2D;
 using System.Windows;
+using System.ComponentModel;
 namespace ImageToolsWindowsLibrary;
-public partial class ImageHighlightViewerComponent
+public partial class ImageHighlightViewerComponent(IJSRuntime js)
 {
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public ImageHighlightState? Info { get; set; }
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Height { get; set; } = "95vh";
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public EventCallback<Rectangle> OnHighlightChanged { get; set; } // notify parent
@@ -16,7 +21,14 @@ public partial class ImageHighlightViewerComponent
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int PixelsToGoDown { get; set; } = 10;
+
+    private ElementReference? _element = default;
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public float ZoomLevel { get; set; } = 1; // Default zoom level
+
     private string CroppedImageData { get; set; } = "";
+    private ScrollHelperClass? _scrollHelper;
 
     private AppKeyboardListener? _keys;
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -26,11 +38,12 @@ public partial class ImageHighlightViewerComponent
         base.OnParametersSet();
         if (!string.IsNullOrWhiteSpace(Info?.Path) && File.Exists(Info.Path))
         {
-            CroppedImageData = $"data:image/png;base64,{GetCroppedImageBase64(Info.Path, Info.CropArea)}";
+            CroppedImageData = $"data:image/png;base64,{GetCroppedImageBase64(Info.Path, Info.CropArea, ZoomLevel)}";
         }
     }
     protected override void OnInitialized()
     {
+        _scrollHelper = new(js);
         if (AppKeyboardListener.MainWindow is null && MainWindow is not null)
         {
             AppKeyboardListener.MainWindow = MainWindow;
@@ -47,45 +60,66 @@ public partial class ImageHighlightViewerComponent
             await ArrowDownAsync(); // Use the method to keep logic centralized
         }
     }
-
     public async Task ArrowDownAsync()
     {
-        if (Info == null)
+        if (Info == null || CroppedImageData is null)
         {
             return;
         }
 
+        //int adjustedPixels = (int)(PixelsToGoDown * ZoomLevel); // divide to maintain real-pixel positioning
+        int adjustedPixels = PixelsToGoDown;
         Info.CurrentHighlight = new Rectangle(
             Info.CurrentHighlight.X,
-            Info.CurrentHighlight.Y + PixelsToGoDown,
+            Info.CurrentHighlight.Y + adjustedPixels,
             Info.CurrentHighlight.Width,
             Info.CurrentHighlight.Height);
 
         await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
-        StateHasChanged(); // Refresh UI
+        // Scroll down proportionally with zoom level
+        int scrollAmount = (int)(PixelsToGoDown * ZoomLevel);
+        //int scrollAmount = PixelsToGoDown;
+        await _scrollHelper!.ScrollImageContainer(_element, scrollAmount);
+        StateHasChanged();
     }
-
-    private static string GetCroppedImageBase64(string imagePath, Rectangle cropArea)
+    private static string GetCroppedImageBase64(string imagePath, Rectangle cropArea, double zoomLevel)
     {
         using Bitmap original = new(imagePath);
 
         Rectangle safeCrop = Rectangle.Intersect(cropArea, new Rectangle(0, 0, original.Width, original.Height));
         using Bitmap cropped = original.Clone(safeCrop, original.PixelFormat);
 
+        int newWidth = (int)(cropped.Width * zoomLevel);
+        int newHeight = (int)(cropped.Height * zoomLevel);
+
+        using Bitmap zoomed = new(newWidth, newHeight);
+        using Graphics g = Graphics.FromImage(zoomed);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.DrawImage(cropped, new Rectangle(0, 0, newWidth, newHeight));
+
         using MemoryStream ms = new();
-        cropped.Save(ms, ImageFormat.Png);
+        zoomed.Save(ms, ImageFormat.Png);
         return Convert.ToBase64String(ms.ToArray());
     }
 
     private string GetContainerStyle()
     {
-        return $"position: relative; display: inline-block; width: {Info?.CropArea.Width}px; height: {Info?.CropArea.Height}px;";
-    }
+        if (Info == null)
+        {
+            return "";
+        }
 
+        int zoomedWidth = (int)(Info.CropArea.Width * ZoomLevel);
+        int zoomedHeight = (int)(Info.CropArea.Height * ZoomLevel);
+
+        return $"position: relative; display: inline-block; width: {zoomedWidth}px; height: {zoomedHeight}px;";
+    }
     private string GetHighlightStyle()
     {
         if (Info == null || Info.CurrentHighlight.Width == 0 || Info.CurrentHighlight.Height == 0)
+        {
             return "display: none;";
+        }
 
         var crop = Info.CropArea;
         var highlight = Info.CurrentHighlight;
@@ -104,13 +138,14 @@ public partial class ImageHighlightViewerComponent
         int clampedWidth = Math.Min(highlight.Width - (clampedX - adjustedX), crop.Width - clampedX);
         int clampedHeight = Math.Min(highlight.Height - (clampedY - adjustedY), crop.Height - clampedY);
 
+        double zoom = ZoomLevel;
+
         var color = GetRgbaHighlightColor();
         return $"position: absolute; " +
-               $"left: {clampedX}px; top: {clampedY}px; " +
-               $"width: {clampedWidth}px; height: {clampedHeight}px; " +
+               $"left: {clampedX * zoom}px; top: {clampedY * zoom}px; " +
+               $"width: {clampedWidth * zoom}px; height: {clampedHeight * zoom}px; " +
                $"background-color: {color}; pointer-events: none;";
     }
-
     private string GetRgbaHighlightColor()
     {
         if (string.IsNullOrWhiteSpace(HighlightColor))
@@ -126,6 +161,16 @@ public partial class ImageHighlightViewerComponent
         catch
         {
             return "rgba(255, 255, 0, 0.2)";
+        }
+    }
+    private bool _initialScrollDone = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_initialScrollDone && Info != null && _scrollHelper != null && _element.HasValue)
+        {
+            _initialScrollDone = true;
+            int scrollToY = (int)(Info.CurrentHighlight.Y * ZoomLevel);
+            await _scrollHelper.ScrollImageContainer(_element, scrollToY);
         }
     }
 }

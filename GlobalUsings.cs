@@ -6,3 +6,4 @@ global using cc1 = CommonBasicLibraries.BasicDataSettingsAndProcesses.SColorStri
 global using CommonBasicLibraries.BasicDataSettingsAndProcesses;
 global using System.Drawing.Imaging;
 global using WindowsKeyboardCapture;
+global using BasicBlazorLibrary.BasicJavascriptClasses;
