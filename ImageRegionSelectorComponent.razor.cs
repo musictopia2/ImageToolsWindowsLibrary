@@ -117,7 +117,7 @@ public partial class ImageRegionSelectorComponent
         StateHasChanged();
     }
 
-    private void ClearSelection()
+    public void ClearSelection()
     {
         StartPoint = null;
         EndPoint = null;
