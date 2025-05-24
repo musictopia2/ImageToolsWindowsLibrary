@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using System.Windows;
+using System.ComponentModel;
 namespace ImageToolsWindowsLibrary;
 public partial class ImageHighlightViewerComponent(IJSRuntime js)
 {
@@ -27,13 +28,21 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public float ZoomLevel { get; set; } = 1; // Default zoom level
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool HighlightRelativeToCrop { get; set; } = false;
+
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public EventCallback OnHighlightMovedOffBottom { get; set; }
 
     private string CroppedImageData { get; set; } = "";
     private ScrollHelperClass? _scrollHelper;
-
     private AppKeyboardListener? _keys;
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public static Window? MainWindow { get; set; }
+    private Rectangle? _previousCrop;
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
@@ -41,6 +50,29 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         {
             CroppedImageData = $"data:image/png;base64,{GetCroppedImageBase64(Info.Path, Info.CropArea, ZoomLevel)}";
         }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_previousCrop is null && Info is not null)
+        {
+            _previousCrop = Info.CropArea;
+            return;
+        }
+        if (Info is null)
+        {
+            return;
+        }
+        if (_previousCrop == Info.CropArea)
+        {
+            return;
+        }
+        if (_element.HasValue == false || _scrollHelper is null)
+        {
+            return;
+        }
+        _previousCrop = Info.CropArea;
+        //found that smooth scrolling made me even more dizzy, so i am not doing that anymore.
+        await _scrollHelper.ScrollToTop(_element.Value);
     }
     protected override void OnInitialized()
     {
@@ -53,7 +85,6 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         _keys.KeyUp += Keys_KeyUp;
         base.OnInitialized();
     }
-
     private async void Keys_KeyUp(EnumKey key)
     {
         if (key == EnumKey.Down)
@@ -94,16 +125,42 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         {
             return;
         }
-        // Update highlight position
+
         int adjustedPixels = HighlightDeltaY;
+
+        // Calculate new highlight Y (in whatever coordinate space it currently is)
+        int newHighlightY = Info.CurrentHighlight.Y + adjustedPixels;
+
+        int adjustedY;
+        if (HighlightRelativeToCrop)
+        {
+            // Highlight is already relative to crop, so use newHighlightY directly
+            adjustedY = newHighlightY;
+        }
+        else
+        {
+            // Highlight is relative to full image, convert to crop-relative by subtracting CropArea.Y
+            adjustedY = newHighlightY - Info.CropArea.Y;
+        }
+
+        int highlightBottom = adjustedY + Info.CurrentHighlight.Height;
+
+        // Check if highlight bottom is beyond the crop height
+        if (highlightBottom > Info.CropArea.Height)
+        {
+            await OnHighlightMovedOffBottom.InvokeAsync(null);
+            return;
+        }
+
+        // Update highlight position (still in original coordinate space)
         Info.CurrentHighlight = new Rectangle(
             Info.CurrentHighlight.X,
-            Info.CurrentHighlight.Y + adjustedPixels,
+            newHighlightY,
             Info.CurrentHighlight.Width,
             Info.CurrentHighlight.Height);
 
         await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
-        StateHasChanged(); // Refresh UI
+        StateHasChanged();
     }
     private async Task ArrowUpAsync()
     {
@@ -166,27 +223,42 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         var crop = Info.CropArea;
         var highlight = Info.CurrentHighlight;
 
-        int adjustedX = highlight.X - crop.X;
-        int adjustedY = highlight.Y - crop.Y;
+        int adjustedX = HighlightRelativeToCrop ? highlight.X : highlight.X - crop.X;
+        int adjustedY = HighlightRelativeToCrop ? highlight.Y : highlight.Y - crop.Y;
 
-        if (adjustedX + highlight.Width <= 0 || adjustedY + highlight.Height <= 0 ||
-            adjustedX >= crop.Width || adjustedY >= crop.Height)
+        // Only clamp if we're drawing inside the crop area
+        if (HighlightRelativeToCrop == false)
         {
-            return "display: none;";
+            if (adjustedX + highlight.Width <= 0 || adjustedY + highlight.Height <= 0 ||
+                adjustedX >= crop.Width || adjustedY >= crop.Height)
+            {
+                return "display: none;";
+            }
+
+            int clampedX = Math.Max(0, adjustedX);
+            int clampedY = Math.Max(0, adjustedY);
+            int clampedWidth = Math.Min(highlight.Width - (clampedX - adjustedX), crop.Width - clampedX);
+            int clampedHeight = Math.Min(highlight.Height - (clampedY - adjustedY), crop.Height - clampedY);
+
+            double zoom = ZoomLevel;
+            var color = GetRgbaHighlightColor();
+
+            return $"position: absolute; " +
+                   $"left: {clampedX * zoom}px; top: {clampedY * zoom}px; " +
+                   $"width: {clampedWidth * zoom}px; height: {clampedHeight * zoom}px; " +
+                   $"background-color: {color}; pointer-events: none;";
         }
+        else
+        {
+            // Use highlight directly, no clamping — assume already valid for cropped image
+            double zoom = ZoomLevel;
+            var color = GetRgbaHighlightColor();
 
-        int clampedX = Math.Max(0, adjustedX);
-        int clampedY = Math.Max(0, adjustedY);
-        int clampedWidth = Math.Min(highlight.Width - (clampedX - adjustedX), crop.Width - clampedX);
-        int clampedHeight = Math.Min(highlight.Height - (clampedY - adjustedY), crop.Height - clampedY);
-
-        double zoom = ZoomLevel;
-
-        var color = GetRgbaHighlightColor();
-        return $"position: absolute; " +
-               $"left: {clampedX * zoom}px; top: {clampedY * zoom}px; " +
-               $"width: {clampedWidth * zoom}px; height: {clampedHeight * zoom}px; " +
-               $"background-color: {color}; pointer-events: none;";
+            return $"position: absolute; " +
+                   $"left: {adjustedX * zoom}px; top: {adjustedY * zoom}px; " +
+                   $"width: {highlight.Width * zoom}px; height: {highlight.Height * zoom}px; " +
+                   $"background-color: {color}; pointer-events: none;";
+        }
     }
     private string GetRgbaHighlightColor()
     {
