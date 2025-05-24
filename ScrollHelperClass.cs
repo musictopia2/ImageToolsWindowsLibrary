@@ -2,12 +2,13 @@
 internal class ScrollHelperClass(IJSRuntime js) : BaseLibraryJavascriptClass(js)
 {
     protected override string JavascriptFileName => "scrollhelpers.js";
-    public async Task ScrollImageContainer(ElementReference? element, int pixels)
+    public async Task ScrollDownOnePage(ElementReference element, int buffer = 100)
     {
-        if (element is null)
-        {
-            return;
-        }
-        await ModuleTask.InvokeVoidFromClassAsync("scrollImageContainer", element, pixels);
+        await ModuleTask.InvokeVoidFromClassAsync("scrollDownOnePage", element, buffer);
+    }
+
+    public async Task ScrollUpOnePage(ElementReference element, int buffer = 100)
+    {
+        await ModuleTask.InvokeVoidFromClassAsync("scrollUpOnePage", element, buffer);
     }
 }

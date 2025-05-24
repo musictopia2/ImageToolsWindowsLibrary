@@ -1,6 +1,5 @@
 using System.Drawing.Drawing2D;
 using System.Windows;
-using System.ComponentModel;
 namespace ImageToolsWindowsLibrary;
 public partial class ImageHighlightViewerComponent(IJSRuntime js)
 {
@@ -17,10 +16,12 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string HighlightColor { get; set; } = cc1.Blue;
-
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public int PixelsToGoDown { get; set; } = 10;
+    public int ScrollOverlapPixels { get; set; } = 100; // Buffer for scrolling, default to 100 pixels
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int HighlightDeltaY { get; set; } = 10;
 
     private ElementReference? _element = default;
     [Parameter]
@@ -59,6 +60,33 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         {
             await ArrowDownAsync(); // Use the method to keep logic centralized
         }
+        if (key == EnumKey.Up)
+        {
+            await ArrowUpAsync(); // Use the method to keep logic centralized
+        }
+        if (key == EnumKey.PageDown)
+        {
+            //do automatically now (but has to manually be done).
+            await ScrollDownOnePageAsync();
+        }
+        if (key == EnumKey.PageUp)
+        {
+            await ScrollUpOnePageAsync();
+        }
+    }
+    private async Task ScrollUpOnePageAsync()
+    {
+        if (_element.HasValue)
+        {
+            await _scrollHelper!.ScrollUpOnePage(_element.Value, ScrollOverlapPixels);
+        }
+    }
+    private async Task ScrollDownOnePageAsync()
+    {
+        if (_element.HasValue)
+        {
+            await _scrollHelper!.ScrollDownOnePage(_element.Value, ScrollOverlapPixels);
+        }
     }
     public async Task ArrowDownAsync()
     {
@@ -66,9 +94,8 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         {
             return;
         }
-
-        //int adjustedPixels = (int)(PixelsToGoDown * ZoomLevel); // divide to maintain real-pixel positioning
-        int adjustedPixels = PixelsToGoDown;
+        // Update highlight position
+        int adjustedPixels = HighlightDeltaY;
         Info.CurrentHighlight = new Rectangle(
             Info.CurrentHighlight.X,
             Info.CurrentHighlight.Y + adjustedPixels,
@@ -76,11 +103,26 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
             Info.CurrentHighlight.Height);
 
         await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
-        // Scroll down proportionally with zoom level
-        int scrollAmount = (int)(PixelsToGoDown * ZoomLevel);
-        //int scrollAmount = PixelsToGoDown;
-        await _scrollHelper!.ScrollImageContainer(_element, scrollAmount);
-        StateHasChanged();
+        StateHasChanged(); // Refresh UI
+    }
+    private async Task ArrowUpAsync()
+    {
+        if (Info == null || CroppedImageData is null)
+        {
+            return;
+        }
+
+        int adjustedPixels = HighlightDeltaY;
+        int newY = Math.Max(0, Info.CurrentHighlight.Y - adjustedPixels); // prevent scrolling above image
+
+        Info.CurrentHighlight = new Rectangle(
+            Info.CurrentHighlight.X,
+            newY,
+            Info.CurrentHighlight.Width,
+            Info.CurrentHighlight.Height);
+
+        await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
+        StateHasChanged(); // Refresh UI
     }
     private static string GetCroppedImageBase64(string imagePath, Rectangle cropArea, double zoomLevel)
     {
@@ -161,16 +203,6 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
         catch
         {
             return "rgba(255, 255, 0, 0.2)";
-        }
-    }
-    private bool _initialScrollDone = false;
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!_initialScrollDone && Info != null && _scrollHelper != null && _element.HasValue)
-        {
-            _initialScrollDone = true;
-            int scrollToY = (int)(Info.CurrentHighlight.Y * ZoomLevel);
-            await _scrollHelper.ScrollImageContainer(_element, scrollToY);
         }
     }
 }
