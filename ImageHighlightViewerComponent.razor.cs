@@ -122,7 +122,7 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
             await _scrollHelper!.ScrollDownOnePage(_element.Value, ScrollOverlapPixels);
         }
     }
-    public async Task ArrowDownAsync()
+    public async Task ArrowDownAsync(bool showEvent = true)
     {
         if (Info == null || CroppedImageData is null)
         {
@@ -161,9 +161,11 @@ public partial class ImageHighlightViewerComponent(IJSRuntime js)
             newHighlightY,
             Info.CurrentHighlight.Width,
             Info.CurrentHighlight.Height);
-
-        await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
-        StateHasChanged();
+        if (showEvent)
+        {
+            await OnHighlightChanged.InvokeAsync(Info.CurrentHighlight);
+            StateHasChanged();
+        }
     }
     private async Task ArrowUpAsync()
     {
