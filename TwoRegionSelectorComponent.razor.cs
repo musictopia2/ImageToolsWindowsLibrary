@@ -1,21 +1,59 @@
 namespace ImageToolsWindowsLibrary;
-public partial class ImageRegionSelectorComponent
+public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 {
+    private enum EnumRegionStep
+    {
+        SelectingFirst,
+        SelectingSecond,
+        Done
+    }
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string ImagePath { get; set; } = "";
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public bool ShowCroppedImage { get; set; }
+    public bool ShowCroppedImages { get; set; }
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public Rectangle? InitialCropRectangle { get; set; }
+    public EnumRegionLayoutMode LayoutMode { get; set; }
 
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RenderFragment? ChildContent { get; set; }
+    private Rectangle? _firstRectangle = null;
+    private Rectangle? _secondRectangle = null;
+    private int _naturalImageWidth;
+    private int _naturalImageHeight;
+    private ImageCropHelper _cropHelper = new ();
+    private string ImageData { get; set; } = "";
+    private EnumRegionStep _currentStep = EnumRegionStep.SelectingFirst;
 
-    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private Point? StartPoint { get; set; }
+    private Point? EndPoint { get; set; }
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(ImagePath))
+        {
+            _cropHelper.LoadImage(ImagePath);
+            var temp = _cropHelper.GetNaturalSize();
+            _naturalImageWidth = temp.width;
+            _naturalImageHeight = temp.height;
+            var bytes = await File.ReadAllBytesAsync(ImagePath);
+            ImageData = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+
+            await GetRenderedImageSizeAsync();
+
+            _firstRectangle = null;
+            _secondRectangle = null;
+            _currentStep = EnumRegionStep.SelectingFirst;
+        }
+    }
+
+    private ElementReference _imageRef;
+
     private int _renderedImageWidth;
     private int _renderedImageHeight;
     private async Task GetRenderedImageSizeAsync()
@@ -25,120 +63,11 @@ public partial class ImageRegionSelectorComponent
         _renderedImageWidth = x;
         _renderedImageHeight = y;
     }
-    private ElementReference _imageRef;
-    private Point? StartPoint { get; set; }
-    private Point? EndPoint { get; set; }
-    private string ImageData { get; set; } = "";
-    private string CroppedImageData { get; set; } = "";
-    private string? _lastImagePath = null;
-    private int _naturalImageWidth;
-    private int _naturalImageHeight;
 
-    private void LoadImageSize()
+
+
+    private Rectangle? GetScaledCropRectangle(Rectangle? rect)
     {
-        using var bmp = new Bitmap(ImagePath);
-        _naturalImageWidth = bmp.Width;
-        _naturalImageHeight = bmp.Height;
-    }
-    protected override void OnParametersSet()
-    {
-        base.OnParametersSet();
-
-        if (!string.IsNullOrWhiteSpace(ImagePath) &&
-            File.Exists(ImagePath) &&
-            ImagePath != _lastImagePath) // only reload if path changes
-        {
-            _lastImagePath = ImagePath;
-
-            LoadImageSize();
-
-            byte[] bytes = File.ReadAllBytes(ImagePath);
-            string base64 = Convert.ToBase64String(bytes);
-            ImageData = $"data:image/png;base64,{base64}";
-            CroppedImageData = ""; // clear old crop because image changed
-
-            if (InitialCropRectangle is Rectangle rect)
-            {
-                StartPoint = new Point(rect.X, rect.Y);
-                EndPoint = new Point(rect.X + rect.Width, rect.Y + rect.Height);
-                GenerateCroppedImage();
-            }
-            else
-            {
-                StartPoint = null;
-                EndPoint = null;
-            }
-        }
-    }
-    public void GenerateCroppedImage()
-    {
-        if (StartPoint is null || EndPoint is null)
-        {
-            return;
-        }
-
-        var rect = GetSelectionRectangle();
-        if (rect is null || _renderedImageWidth == 0 || _renderedImageHeight == 0)
-        {
-            return;
-        }
-
-        // Compute scale factors from rendered image to actual image size
-        double scaleX = (double)_naturalImageWidth / _renderedImageWidth;
-        double scaleY = (double)_naturalImageHeight / _renderedImageHeight;
-
-        // Apply scaling to get actual image-space crop
-        var scaledRect = new Rectangle(
-            (int)(rect.Value.X * scaleX),
-            (int)(rect.Value.Y * scaleY),
-            (int)(rect.Value.Width * scaleX),
-            (int)(rect.Value.Height * scaleY)
-        );
-
-        using var bmp = new Bitmap(ImagePath);
-        using var cropped = bmp.Clone(scaledRect, bmp.PixelFormat);
-        using var ms = new MemoryStream();
-        cropped.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-        CroppedImageData = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
-    }
-    private void HandleClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
-    {
-        var point = new Point((int)e.OffsetX, (int)e.OffsetY);
-
-        if (!StartPoint.HasValue)
-        {
-            StartPoint = point;
-        }
-        else if (!EndPoint.HasValue)
-        {
-            EndPoint = point;
-        }
-
-        StateHasChanged();
-    }
-
-    public void ClearSelection()
-    {
-        StartPoint = null;
-        EndPoint = null;
-    }
-
-    private Rectangle? GetSelectionRectangle()
-    {
-        if (StartPoint.HasValue && EndPoint.HasValue)
-        {
-            int x = Math.Min(StartPoint.Value.X, EndPoint.Value.X);
-            int y = Math.Min(StartPoint.Value.Y, EndPoint.Value.Y);
-            int width = Math.Abs(StartPoint.Value.X - EndPoint.Value.X);
-            int height = Math.Abs(StartPoint.Value.Y - EndPoint.Value.Y);
-            return new Rectangle(x, y, width, height);
-        }
-        return null;
-    }
-    public string GetCroppedImageBase64() => CroppedImageData;
-    public Rectangle? GetScaledCropRectangle()
-    {
-        var rect = GetSelectionRectangle();
         if (rect is null || _renderedImageWidth == 0 || _renderedImageHeight == 0)
         {
             return null;
@@ -153,12 +82,79 @@ public partial class ImageRegionSelectorComponent
             (int)(rect.Value.Height * scaleY)
         );
     }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+
+    public TwoRegionImageEntry GetTwoRegionEntry()
     {
-        if (firstRender)
+        TwoRegionImageEntry output = new ()
         {
-            await GetRenderedImageSizeAsync();
+            ImageFile = ImagePath,
+            FirstRegion = _firstRectangle,
+            SecondRegion = _secondRectangle
+        };
+        _firstRectangle = null;
+        _secondRectangle = null;
+        _currentStep = EnumRegionStep.SelectingFirst;
+        return output;
+    }
+    private Rectangle GetSelectionRectangle(Point p1, Point p2)
+    {
+        int x = Math.Min(p1.X, p2.X);
+        int y = Math.Min(p1.Y, p2.Y);
+        int w = Math.Abs(p1.X - p2.X);
+        int h = Math.Abs(p1.Y - p2.Y);
+        return new Rectangle(x, y, w, h);
+    }
+    private void HandleClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
+    {
+        var clickedPoint = new Point((int)e.OffsetX, (int)e.OffsetY);
+
+        if (StartPoint.HasValue == false)
+        {
+            StartPoint = clickedPoint;
         }
+        else if (EndPoint.HasValue == false)
+        {
+            EndPoint = clickedPoint;
+            var rect = GetSelectionRectangle(StartPoint.Value, EndPoint.Value);
+            if (_currentStep == EnumRegionStep.SelectingFirst)
+            {
+                _firstRectangle = rect;
+            }
+            else if (_currentStep == EnumRegionStep.SelectingSecond)
+            {
+                _secondRectangle = rect;
+            }
+
+            StartPoint = null;
+            EndPoint = null;
+
+            StateHasChanged();
+        }
+
+        StateHasChanged();
+    }
+    public void ClearSelection()
+    {
+        StartPoint = null;
+        EndPoint = null;
+    }
+    private string GetFirstRegionImageBase64()
+    {
+        if (_firstRectangle is null)
+        {
+            return "";
+        }
+        var scaledRect = GetScaledCropRectangle(_firstRectangle);
+        return _cropHelper.CropImageBase64(scaledRect!.Value);
+    }
+    private string GetSecondRegionImageBase64()
+    {
+        if (_secondRectangle is null)
+        {
+            return "";
+        }
+        var scaledRect = GetScaledCropRectangle(_secondRectangle);
+        return _cropHelper.CropImageBase64(scaledRect!.Value);
     }
     private void LeftArrowClicked()
     {
@@ -188,7 +184,6 @@ public partial class ImageRegionSelectorComponent
                 }
                 break;
         }
-        GenerateCroppedImage();
         StateHasChanged();
     }
 
@@ -220,7 +215,6 @@ public partial class ImageRegionSelectorComponent
                 }
                 break;
         }
-        GenerateCroppedImage();
         StateHasChanged();
     }
     private void UpArrowClicked()
@@ -251,7 +245,6 @@ public partial class ImageRegionSelectorComponent
                 }
                 break;
         }
-        GenerateCroppedImage();
         StateHasChanged();
     }
 
@@ -283,7 +276,6 @@ public partial class ImageRegionSelectorComponent
                 }
                 break;
         }
-        GenerateCroppedImage();
         StateHasChanged();
     }
     private enum EnumAdjustmentMode
@@ -293,4 +285,14 @@ public partial class ImageRegionSelectorComponent
         AdjustEdges
     }
     private EnumAdjustmentMode _currentMode = EnumAdjustmentMode.AdjustEdges;
+
+    //best to have the parent (child) decide to call when the second one is needed.
+    public void BeginSecondRegion()
+    {
+        if (_firstRectangle is not null)
+        {
+            _currentStep = EnumRegionStep.SelectingSecond;
+            StateHasChanged();
+        }
+    }
 }

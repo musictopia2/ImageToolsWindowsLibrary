@@ -1,0 +1,139 @@
+﻿@if (ShowCroppedImages)
+{
+    if (_firstRectangle is null)
+    {
+        <div>
+            You must have at least the first rectangle
+        </div>
+        return;
+    }
+    if (_secondRectangle is null)
+    {
+        @ChildContent
+        <br />
+        <img style="max-width: 100%; display: block;" src="@GetFirstRegionImageBase64()" />
+        return; //only one so does not matter the order.
+    }
+    @ChildContent
+    <br />
+    if (LayoutMode == EnumRegionLayoutMode.Landscape)
+    {
+        <StackLayout>
+            <StackItem>
+                <img style="max-width: 100%; display: block;" src="@GetFirstRegionImageBase64()" />
+            </StackItem>
+            <StackItem>
+                <img style="max-width: 100%; display: block;" src="@GetSecondRegionImageBase64()" />
+            </StackItem>
+        </StackLayout>
+    }
+    else
+    {
+        <img style="max-width: 100%; display: block;" src="@GetFirstRegionImageBase64()" />
+        <br />
+        <img style="max-width: 100%; display: block;" src="@GetSecondRegionImageBase64()" />
+    }
+    return;
+}
+<LeftOverLayout>
+    <TopContent>
+        @ChildContent
+    </TopContent>
+    <MainContent>
+        <div style="position: relative; display: inline-block;">
+            <img src="@ImageData" @ref="_imageRef" style="max-width: 100%; display: block;" @onmousedown="HandleClick" />
+            @if (StartPoint.HasValue)
+            {
+                <div style="
+                            position: absolute;
+                            width: 8px;
+                            height: 8px;
+                            background: red;
+                            border-radius: 4px;
+                            left: @(StartPoint.Value.X - 4)px;
+                            top: @(StartPoint.Value.Y - 4)px;">
+                </div>
+            }
+
+            @if (EndPoint.HasValue)
+            {
+                <div style="
+                            position: absolute;
+                            width: 8px;
+                            height: 8px;
+                            background: blue;
+                            border-radius: 4px;
+                            left: @(EndPoint.Value.X - 4)px;
+                            top: @(EndPoint.Value.Y - 4)px;">
+                </div>
+            }
+
+            @if (_firstRectangle is not null)
+            {
+                <div style="
+                    position: absolute;
+                    border: 2px dashed lime;
+                    left: @(Math.Min(_firstRectangle.Value.X, _firstRectangle.Value.X + _firstRectangle.Value.Width))px;
+                    top: @(Math.Min(_firstRectangle.Value.Y, _firstRectangle.Value.Y + _firstRectangle.Value.Height))px;
+                    width: @(Math.Abs(_firstRectangle.Value.Width))px;
+                    height: @(Math.Abs(_firstRectangle.Value.Height))px;">
+                </div>
+            }
+
+            @if (_secondRectangle is not null)
+            {
+                <div style="
+                    position: absolute;
+                    border: 2px dashed lime;
+                    left: @(Math.Min(_secondRectangle.Value.X, _secondRectangle.Value.X + _secondRectangle.Value.Width))px;
+                    top: @(Math.Min(_secondRectangle.Value.Y, _secondRectangle.Value.Y + _secondRectangle.Value.Height))px;
+                    width: @(Math.Abs(_secondRectangle.Value.Width))px;
+                    height: @(Math.Abs(_secondRectangle.Value.Height))px;">
+                </div>
+            }
+        </div>
+    </MainContent>
+    <BottomContent>
+        <StackLayout>
+            <StackItem>
+                <PrimaryButton OnClick="ClearSelection">
+                    Clear
+                </PrimaryButton>
+            </StackItem>
+            @if (StartPoint.HasValue && EndPoint.HasValue)
+            {
+                <StackItem>
+                    <div style="margin-top: 10px;">
+                        <label>Adjustment Mode:</label>
+                        <select @bind="_currentMode">
+                            <option value="Move">Move</option>
+                            <option value="Resize">Resize</option>
+                            <option value="AdjustEdges">Adjust Edges</option>
+                        </select>
+                    </div>
+                </StackItem>
+                <StackItem>
+                    <ArrowLeftComponent BackgroundColor="aqua"
+                                        TargetHeight="8vh"
+                                        StrokeColor="black"
+                                        Clicked="LeftArrowClicked" />
+                    <ArrowRightComponent BackgroundColor="aqua"
+                                         StrokeColor="black"
+                                         TargetHeight="8vh"
+                                         Clicked="RightArrowClicked" />
+
+                    <ArrowUpComponent BackgroundColor="aqua"
+                                      StrokeColor="black"
+                                      TargetHeight="8vh"
+                                      Clicked="UpArrowClicked" />
+
+                    <ArrowDownComponent BackgroundColor="aqua"
+                                        StrokeColor="black"
+                                        TargetHeight="8vh"
+                                        Clicked="DownArrowClicked" />
+                </StackItem>
+            }
+        </StackLayout>
+
+    </BottomContent>
+</LeftOverLayout>
