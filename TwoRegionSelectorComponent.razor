@@ -97,6 +97,12 @@
     <BottomContent>
         @if (_currentStep == EnumRegionStep.Done)
         {
+            if (OnReviewAffirmed.HasDelegate)
+            {
+                <div>
+                    Hit F1 to verify that this is correct.
+                </div>
+            }
             return;
         }
         <StackLayout ItemSpacing="10px">

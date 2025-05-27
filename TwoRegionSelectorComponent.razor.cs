@@ -22,7 +22,9 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RenderFragment? ChildContent { get; set; }
-
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public EventCallback OnReviewAffirmed { get; set; }
 
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -113,6 +115,14 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 
     private void SetMode(EnumAdjustmentMode newMode, bool forceRender = true)
     {
+        if (_currentStep == EnumRegionStep.Done)
+        {
+            if (newMode == EnumAdjustmentMode.Move)
+            {
+                OnReviewAffirmed.InvokeAsync();
+            }
+            return; // no adjustments allowed after completion
+        }
         if (_currentMode != newMode)
         {
             _currentMode = newMode;
