@@ -168,6 +168,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             _currentMode = EnumAdjustmentMode.Resize; //can only resize.
         }
+        if (DesiredLeft > 0 && DesiredTop > 0)
+        {
+            StartPoint = new(DesiredLeft, DesiredTop); //hopefully okay.
+        }
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
             ImagePath != _lastImagePath) // only reload if path changes
