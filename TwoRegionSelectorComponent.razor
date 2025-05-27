@@ -5,6 +5,7 @@
         <div>
             You must have at least the first rectangle
         </div>
+        @ChildContent
         return;
     }
     if (_secondRectangle is null)
@@ -94,6 +95,10 @@
         </div>
     </MainContent>
     <BottomContent>
+        @if (_currentStep == EnumRegionStep.Done)
+        {
+            return;
+        }
         <StackLayout ItemSpacing="10px">
             <StackItem>
                 @if (_currentStep == EnumRegionStep.SelectingFirst)

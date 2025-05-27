@@ -33,6 +33,14 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     public int DesiredLeft { get; set; } //this is the left side of the image.  so if you want to adjust the left side, then you can use this.
 
 
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Rectangle? ReviewFirstRegion { get; set; }
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Rectangle? ReviewSecondRegion { get; set; }
+
     private Rectangle? _firstRectangle = null;
     private Rectangle? _secondRectangle = null;
     private int _naturalImageWidth;
@@ -149,8 +157,20 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
             _naturalImageHeight = height;
             var bytes = await File.ReadAllBytesAsync(ImagePath);
             ImageData = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
-            _firstRectangle = null;
-            _secondRectangle = null;
+            _firstRectangle = ReviewFirstRegion;
+            _secondRectangle = ReviewSecondRegion;
+            if (_firstRectangle.HasValue && _secondRectangle.HasValue)
+            {
+                _currentStep = EnumRegionStep.Done;
+            }
+            else if (_firstRectangle.HasValue)
+            {
+                _currentStep = EnumRegionStep.SelectingSecond;
+            }
+            else
+            {
+                _currentStep = EnumRegionStep.SelectingFirst;
+            }
             _currentStep = EnumRegionStep.SelectingFirst;
         }
     }
