@@ -1,4 +1,3 @@
-
 namespace ImageToolsWindowsLibrary;
 public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 {
@@ -33,7 +32,9 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int DesiredLeft { get; set; } //this is the left side of the image.  so if you want to adjust the left side, then you can use this.
-
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int DesiredTop { get; set; } //this is if i know what the top and left is but need to populate the height part alone.
 
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -94,7 +95,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
                 break;
         }
     }
-    
+
     private string ImageData { get; set; } = "";
     private EnumRegionStep _currentStep = EnumRegionStep.SelectingFirst;
 
@@ -112,9 +113,16 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
             </svg>
             """;
     }
-
     private void SetMode(EnumAdjustmentMode newMode, bool forceRender = true)
     {
+        if (DesiredLeft > 0 && DesiredWidth > 0)
+        {
+            _currentMode = EnumAdjustmentMode.Resize; //must be resize.
+            if (forceRender)
+            {
+                StateHasChanged();
+            }
+        }
         if (_currentStep == EnumRegionStep.Done)
         {
             if (newMode == EnumAdjustmentMode.Move)
@@ -156,6 +164,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     private string? _lastImagePath = null;
     protected override async Task OnParametersSetAsync()
     {
+        if (DesiredLeft > 0 && DesiredWidth > 0)
+        {
+            _currentMode = EnumAdjustmentMode.Resize; //can only resize.
+        }
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
             ImagePath != _lastImagePath) // only reload if path changes
@@ -281,9 +293,24 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     }
     public void ClearSelection()
     {
-        StartPoint = null;
+        if (DesiredLeft > 0 && DesiredTop > 0)
+        {
+            StartPoint = new(DesiredLeft, DesiredTop);
+        }
+        else
+        {
+            StartPoint = null;
+        }
         EndPoint = null;
-        _firstRectangle = null;
+        if (ReviewFirstRegion is null)
+        {
+            _firstRectangle = null;
+            _currentStep = EnumRegionStep.SelectingFirst;
+        }
+        else
+        {
+            _currentStep = EnumRegionStep.SelectingSecond; //you can't do the first one anymore.
+        }
         _secondRectangle = null;
     }
     private string GetFirstRegionImageBase64()
@@ -332,6 +359,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             return;
         }
+        if (DesiredLeft > 0)
+        {
+            return; //has to ignore because you already know the left.
+        }
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:
@@ -358,7 +389,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             return;
         }
-
+        if (DesiredLeft > 0)
+        {
+            return; //has to ignore because you already know the left.
+        }
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:

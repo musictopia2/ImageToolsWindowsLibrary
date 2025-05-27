@@ -128,6 +128,11 @@
             </StackItem>
             @if (_firstRectangle is not null || _secondRectangle is not null)
             {
+                if (DesiredLeft > 0 && DesiredWidth > 0)
+                {
+                    //does not matter the selection mode because you have to resize period.
+                    return;
+                }
                 <StackItem Length="150px">
                     Selection Mode 
                     @GetModeSvgIcon(_currentMode)
@@ -144,27 +149,6 @@
                     </div>
                 </StackItem>
                 
-
-                @* <StackItem>
-                    <ArrowLeftComponent BackgroundColor="aqua"
-                                        TargetHeight="8vh"
-                                        StrokeColor="black"
-                                        Clicked="LeftArrowClicked" />
-                    <ArrowRightComponent BackgroundColor="aqua"
-                                         StrokeColor="black"
-                                         TargetHeight="8vh"
-                                         Clicked="RightArrowClicked" />
-
-                    <ArrowUpComponent BackgroundColor="aqua"
-                                      StrokeColor="black"
-                                      TargetHeight="8vh"
-                                      Clicked="UpArrowClicked" />
-
-                    <ArrowDownComponent BackgroundColor="aqua"
-                                        StrokeColor="black"
-                                        TargetHeight="8vh"
-                                        Clicked="DownArrowClicked" />
-                </StackItem> *@
             }
         </StackLayout>
 
