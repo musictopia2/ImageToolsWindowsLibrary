@@ -181,7 +181,6 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
             {
                 _currentStep = EnumRegionStep.SelectingFirst;
             }
-            _currentStep = EnumRegionStep.SelectingFirst;
         }
     }
 
