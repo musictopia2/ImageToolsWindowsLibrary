@@ -41,7 +41,7 @@
     </TopContent>
     <MainContent>
         <div style="position: relative; display: inline-block;">
-            <img src="@ImageData" @ref="_imageRef" style="max-width: 100%; display: block;" @onmousedown="HandleClick" />
+            <img src="@ImageData" @ref="_imageRef" @onload="OnImageLoaded" style="max-width: 100%; display: block;" @onmousedown="HandleClick" />
             @if (StartPoint.HasValue)
             {
                 <div style="
@@ -94,25 +94,47 @@
         </div>
     </MainContent>
     <BottomContent>
-        <StackLayout>
+        <StackLayout ItemSpacing="10px">
+            <StackItem>
+                @if (_currentStep == EnumRegionStep.SelectingFirst)
+                {
+                    <div>
+                        Choosing First Region
+                    </div>
+                }
+                else if (_currentStep == EnumRegionStep.SelectingSecond)
+                {
+                    <div>
+                        Choosing Second Region
+                    </div>
+                }
+               
+            </StackItem>
             <StackItem>
                 <PrimaryButton OnClick="ClearSelection">
                     Clear
                 </PrimaryButton>
             </StackItem>
-            @if (StartPoint.HasValue && EndPoint.HasValue)
+            @if (_firstRectangle is not null || _secondRectangle is not null)
             {
-                <StackItem>
-                    <div style="margin-top: 10px;">
-                        <label>Adjustment Mode:</label>
-                        <select @bind="_currentMode">
-                            <option value="Move">Move</option>
-                            <option value="Resize">Resize</option>
-                            <option value="AdjustEdges">Adjust Edges</option>
-                        </select>
-                    </div>
+                <StackItem Length="150px">
+                    Selection Mode 
+                    @GetModeSvgIcon(_currentMode)
                 </StackItem>
                 <StackItem>
+                    <div>
+                        F1 For Move
+                    </div>
+                    <div>
+                        F2 For Resize
+                    </div>
+                    <div>
+                        F4 For Adjust Edges
+                    </div>
+                </StackItem>
+                
+
+                @* <StackItem>
                     <ArrowLeftComponent BackgroundColor="aqua"
                                         TargetHeight="8vh"
                                         StrokeColor="black"
@@ -131,9 +153,35 @@
                                         StrokeColor="black"
                                         TargetHeight="8vh"
                                         Clicked="DownArrowClicked" />
-                </StackItem>
+                </StackItem> *@
             }
         </StackLayout>
 
     </BottomContent>
 </LeftOverLayout>
+@code {
+    private RenderFragment GetModeSvgIcon(EnumAdjustmentMode mode) => mode switch
+    {
+        
+        EnumAdjustmentMode.Move => builder =>
+    {
+        builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M4 8V4m0 0h4M4 4l7.5 7.5M20 16v4m0 0h-4m4 0l-7.5-7.5"" />
+</svg>");
+    }
+        ,
+        EnumAdjustmentMode.Resize => builder =>
+        {
+            builder.AddMarkupContent(0, ResizeIcon());
+        }
+        ,
+        EnumAdjustmentMode.AdjustEdges => builder =>
+        {
+            builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M12 4v16m8-8H4"" />
+</svg>");
+        }
+        ,
+        _ => builder => { }
+    };
+}

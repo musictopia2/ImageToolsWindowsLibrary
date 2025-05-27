@@ -1,3 +1,4 @@
+
 namespace ImageToolsWindowsLibrary;
 public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 {
@@ -7,6 +8,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         SelectingSecond,
         Done
     }
+
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string ImagePath { get; set; } = "";
@@ -20,36 +22,143 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RenderFragment? ChildContent { get; set; }
+
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int DesiredWidth { get; set; } //helpful so when i click the second point, can figure out what is needed.
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int DesiredLeft { get; set; } //this is the left side of the image.  so if you want to adjust the left side, then you can use this.
+
+
     private Rectangle? _firstRectangle = null;
     private Rectangle? _secondRectangle = null;
     private int _naturalImageWidth;
     private int _naturalImageHeight;
-    private ImageCropHelper _cropHelper = new ();
+    private readonly ImageCropHelper _cropHelper = new();
+
+
+    private AppKeyboardListener? _keys;
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public static System.Windows.Window? MainWindow { get; set; }
+    protected override void OnInitialized()
+    {
+        if (AppKeyboardListener.MainWindow is null && MainWindow is not null)
+        {
+            AppKeyboardListener.MainWindow = MainWindow;
+        }
+        _keys = new();
+        _keys.KeyUp += Keys_KeyUp;
+        base.OnInitialized();
+    }
+    private void Keys_KeyUp(EnumKey key)
+    {
+        if (_firstRectangle is null && _secondRectangle is null)
+        {
+            return; // no regions selected yet
+        }
+        switch (key)
+        {
+            case EnumKey.Down:
+                DownArrowClicked();
+                break;
+            case EnumKey.Up:
+                UpArrowClicked();
+                break;
+            case EnumKey.Left:
+                LeftArrowClicked();
+                break;
+            case EnumKey.Right:
+                RightArrowClicked();
+                break;
+            case EnumKey.F1:
+                SetMode(EnumAdjustmentMode.Move, true);
+                break;
+            case EnumKey.F2:
+                SetMode(EnumAdjustmentMode.Resize, true);
+                break;
+            case EnumKey.F4:
+                SetMode(EnumAdjustmentMode.AdjustEdges, true);
+                break;
+        }
+    }
+    
     private string ImageData { get; set; } = "";
     private EnumRegionStep _currentStep = EnumRegionStep.SelectingFirst;
 
+    private string ResizeIcon()
+    {
+        return """
+            <svg xmlns="http://www.w3.org/2000/svg" 
+                 fill="none" 
+                 viewBox="0 0 24 24" 
+                 stroke="blue" 
+                 stroke-width="2" 
+                 width="24" 
+                 height="24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16M12 4v16M6 6l12 12M6 18L18 6" />
+            </svg>
+            """;
+    }
+
+    private void SetMode(EnumAdjustmentMode newMode, bool forceRender = true)
+    {
+        if (_currentMode != newMode)
+        {
+            _currentMode = newMode;
+            if (forceRender)
+            {
+                StateHasChanged();
+            }
+        }
+    }
+
+    public void ApplySuggestions(Rectangle? firstRegion, Rectangle? secondRegion)
+    {
+        if (firstRegion is null && secondRegion is null)
+        {
+            throw new CustomBasicException("At least one region must be provided for suggestions.");
+        }
+        if (firstRegion is not null)
+        {
+            _firstRectangle = firstRegion.Value;
+        }
+        if (secondRegion is not null)
+        {
+            _secondRectangle = secondRegion.Value;
+            _currentStep = EnumRegionStep.SelectingSecond; //if you decide to do both, then you adjust the second one.
+        }
+    }
 
     private Point? StartPoint { get; set; }
     private Point? EndPoint { get; set; }
 
-
+    private string? _lastImagePath = null;
     protected override async Task OnParametersSetAsync()
     {
-        if (!string.IsNullOrWhiteSpace(ImagePath))
+        if (!string.IsNullOrWhiteSpace(ImagePath) &&
+            File.Exists(ImagePath) &&
+            ImagePath != _lastImagePath) // only reload if path changes
         {
+            _lastImagePath = ImagePath;
             _cropHelper.LoadImage(ImagePath);
-            var temp = _cropHelper.GetNaturalSize();
-            _naturalImageWidth = temp.width;
-            _naturalImageHeight = temp.height;
+            var (width, height) = _cropHelper.GetNaturalSize();
+            _naturalImageWidth = width;
+            _naturalImageHeight = height;
             var bytes = await File.ReadAllBytesAsync(ImagePath);
             ImageData = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
-
-            await GetRenderedImageSizeAsync();
-
             _firstRectangle = null;
             _secondRectangle = null;
             _currentStep = EnumRegionStep.SelectingFirst;
         }
+    }
+
+    private async Task OnImageLoaded()
+    {
+        await GetRenderedImageSizeAsync();
+        StateHasChanged(); // trigger rerender if layout depends on dimensions
     }
 
     private ElementReference _imageRef;
@@ -85,7 +194,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 
     public TwoRegionImageEntry GetTwoRegionEntry()
     {
-        TwoRegionImageEntry output = new ()
+        TwoRegionImageEntry output = new()
         {
             ImageFile = ImagePath,
             FirstRegion = _firstRectangle,
@@ -102,6 +211,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         int y = Math.Min(p1.Y, p2.Y);
         int w = Math.Abs(p1.X - p2.X);
         int h = Math.Abs(p1.Y - p2.Y);
+        if (DesiredWidth > 0)
+        {
+            w = DesiredWidth; //i think if you have a desired width, use that.
+        }
         return new Rectangle(x, y, w, h);
     }
     private void HandleClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
@@ -111,6 +224,10 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         if (StartPoint.HasValue == false)
         {
             StartPoint = clickedPoint;
+            if (DesiredLeft > 0)
+            {
+                StartPoint = new(DesiredLeft, StartPoint.Value.Y);
+            }
         }
         else if (EndPoint.HasValue == false)
         {
@@ -137,6 +254,8 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     {
         StartPoint = null;
         EndPoint = null;
+        _firstRectangle = null;
+        _secondRectangle = null;
     }
     private string GetFirstRegionImageBase64()
     {
@@ -156,126 +275,131 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         var scaledRect = GetScaledCropRectangle(_secondRectangle);
         return _cropHelper.CropImageBase64(scaledRect!.Value);
     }
+
+    private void SetActiveRectangle(Rectangle rect)
+    {
+        if (_currentStep == EnumRegionStep.SelectingSecond && _secondRectangle is not null)
+        {
+            _secondRectangle = rect;
+        }
+        else if (_firstRectangle is not null)
+        {
+            _firstRectangle = rect;
+        }
+    }
+    private Rectangle GetActiveRectangle()
+    {
+        return _currentStep switch
+        {
+            EnumRegionStep.SelectingSecond when _secondRectangle is not null => _secondRectangle.Value,
+            _ when _firstRectangle is not null => _firstRectangle.Value,
+            _ => new()
+        };
+    }
     private void LeftArrowClicked()
     {
-        if (!StartPoint.HasValue || !EndPoint.HasValue)
+        var rect = GetActiveRectangle();
+        if (rect.IsEmpty)
         {
             return;
         }
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:
-                StartPoint = new Point(StartPoint.Value.X - 1, StartPoint.Value.Y);
-                EndPoint = new Point(EndPoint.Value.X - 1, EndPoint.Value.Y);
+                rect.X -= 1;
                 break;
 
             case EnumAdjustmentMode.Resize:
-                EndPoint = new Point(EndPoint.Value.X - 1, EndPoint.Value.Y);
+                rect.Width = Math.Max(1, rect.Width - 1);
                 break;
 
             case EnumAdjustmentMode.AdjustEdges:
-                if (StartPoint.Value.X < EndPoint.Value.X)
-                {
-                    StartPoint = new Point(StartPoint.Value.X + 1, StartPoint.Value.Y);
-                }
-                else
-                {
-                    EndPoint = new Point(EndPoint.Value.X + 1, EndPoint.Value.Y);
-                }
+                rect.X += 1;
+                rect.Width = Math.Max(1, rect.Width - 1);
                 break;
         }
+
+        SetActiveRectangle(rect);
         StateHasChanged();
     }
-
     private void RightArrowClicked()
     {
-        if (!StartPoint.HasValue || !EndPoint.HasValue)
+        var rect = GetActiveRectangle();
+        if (rect.IsEmpty)
         {
             return;
         }
+
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:
-                StartPoint = new Point(StartPoint.Value.X + 1, StartPoint.Value.Y);
-                EndPoint = new Point(EndPoint.Value.X + 1, EndPoint.Value.Y);
+                rect.X += 1;
                 break;
 
             case EnumAdjustmentMode.Resize:
-                EndPoint = new Point(EndPoint.Value.X + 1, EndPoint.Value.Y);
+                rect.Width += 1;
                 break;
 
             case EnumAdjustmentMode.AdjustEdges:
-                if (StartPoint.Value.X < EndPoint.Value.X)
-                {
-                    StartPoint = new Point(StartPoint.Value.X - 1, StartPoint.Value.Y);
-                }
-                else
-                {
-                    EndPoint = new Point(EndPoint.Value.X - 1, EndPoint.Value.Y);
-                }
+                rect.X -= 1;
+                rect.Width += 1;
                 break;
         }
+
+        SetActiveRectangle(rect);
         StateHasChanged();
     }
     private void UpArrowClicked()
     {
-        if (!StartPoint.HasValue || !EndPoint.HasValue)
+        var rect = GetActiveRectangle();
+        if (rect.IsEmpty)
         {
             return;
         }
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:
-                StartPoint = new Point(StartPoint.Value.X, StartPoint.Value.Y - 1);
-                EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y - 1);
+                rect.Y -= 1;
                 break;
 
             case EnumAdjustmentMode.Resize:
-                EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y - 1);
+                rect.Height = Math.Max(1, rect.Height - 1);
                 break;
 
             case EnumAdjustmentMode.AdjustEdges:
-                if (StartPoint.Value.Y < EndPoint.Value.Y)
-                {
-                    StartPoint = new Point(StartPoint.Value.X, StartPoint.Value.Y + 1);
-                }
-                else
-                {
-                    EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y + 1);
-                }
+                rect.Y += 1;
+                rect.Height = Math.Max(1, rect.Height - 1);
                 break;
         }
+
+        SetActiveRectangle(rect);
         StateHasChanged();
     }
 
     private void DownArrowClicked()
     {
-        if (!StartPoint.HasValue || !EndPoint.HasValue)
+        var rect = GetActiveRectangle();
+        if (rect.IsEmpty)
         {
             return;
         }
         switch (_currentMode)
         {
             case EnumAdjustmentMode.Move:
-                StartPoint = new Point(StartPoint.Value.X, StartPoint.Value.Y + 1);
-                EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y + 1);
+                rect.Y += 1;
                 break;
 
             case EnumAdjustmentMode.Resize:
-                EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y + 1);
+                rect.Height += 1;
                 break;
 
             case EnumAdjustmentMode.AdjustEdges:
-                if (StartPoint.Value.Y < EndPoint.Value.Y)
-                {
-                    StartPoint = new Point(StartPoint.Value.X, StartPoint.Value.Y - 1);
-                }
-                else
-                {
-                    EndPoint = new Point(EndPoint.Value.X, EndPoint.Value.Y - 1);
-                }
+                rect.Y -= 1;
+                rect.Height += 1;
                 break;
         }
+
+        SetActiveRectangle(rect);
         StateHasChanged();
     }
     private enum EnumAdjustmentMode
@@ -284,7 +408,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         Resize,
         AdjustEdges
     }
-    private EnumAdjustmentMode _currentMode = EnumAdjustmentMode.AdjustEdges;
+    private EnumAdjustmentMode _currentMode = EnumAdjustmentMode.Move;
 
     //best to have the parent (child) decide to call when the second one is needed.
     public void BeginSecondRegion()
