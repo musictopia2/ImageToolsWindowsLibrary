@@ -172,6 +172,11 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             StartPoint = new(DesiredLeft, DesiredTop); //hopefully okay.
         }
+        else
+        {
+            StartPoint = null;
+        }
+        _firstRectangle ??= ReviewFirstRegion;
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
             ImagePath != _lastImagePath) // only reload if path changes
@@ -183,7 +188,6 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
             _naturalImageHeight = height;
             var bytes = await File.ReadAllBytesAsync(ImagePath);
             ImageData = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
-            _firstRectangle = ReviewFirstRegion;
             _secondRectangle = ReviewSecondRegion;
             if (_firstRectangle.HasValue && _secondRectangle.HasValue)
             {
