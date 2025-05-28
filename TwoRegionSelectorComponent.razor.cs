@@ -44,6 +44,12 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Rectangle? ReviewSecondRegion { get; set; }
 
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public TwoRegionImageEntry? PreviousImage { get; set; }
+
+
     private Rectangle? _firstRectangle = null;
     private Rectangle? _secondRectangle = null;
     private int _naturalImageWidth;
@@ -69,6 +75,14 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         if (_firstRectangle is null && _secondRectangle is null)
         {
             return; // no regions selected yet
+        }
+        if (_currentStep == EnumRegionStep.Done)
+        {
+            if (key == EnumKey.F1 && OnReviewAffirmed.HasDelegate)
+            {
+                OnReviewAffirmed.InvokeAsync();
+            }
+            return; // ignore all keys except F1 during review
         }
         switch (key)
         {
@@ -162,6 +176,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     private Point? EndPoint { get; set; }
 
     private string? _lastImagePath = null;
+    string _desiredImagePath = "";
     protected override async Task OnParametersSetAsync()
     {
         if (DesiredLeft > 0 && DesiredWidth > 0)
@@ -176,20 +191,37 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             StartPoint = null;
         }
-        _firstRectangle ??= ReviewFirstRegion;
-        if (!string.IsNullOrWhiteSpace(ImagePath) &&
-            File.Exists(ImagePath) &&
-            ImagePath != _lastImagePath) // only reload if path changes
+        if (PreviousImage is not null)
         {
-            _lastImagePath = ImagePath;
-            _cropHelper.LoadImage(ImagePath);
+            _desiredImagePath = PreviousImage.ImageFile;
+            _firstRectangle = PreviousImage.FirstRegion;
+            _secondRectangle = PreviousImage.SecondRegion;
+        }
+        else
+        {
+            _desiredImagePath = ImagePath;
+            _firstRectangle ??= ReviewFirstRegion;
+        }
+        if (!string.IsNullOrWhiteSpace(_desiredImagePath) &&
+            File.Exists(_desiredImagePath) &&
+            _desiredImagePath != _lastImagePath) // only reload if path changes
+        {
+            _lastImagePath = _desiredImagePath;
+            _cropHelper.LoadImage(_desiredImagePath);
             var (width, height) = _cropHelper.GetNaturalSize();
             _naturalImageWidth = width;
             _naturalImageHeight = height;
-            var bytes = await File.ReadAllBytesAsync(ImagePath);
+            if (PreviousImage is null)
+            {
+                _secondRectangle = ReviewSecondRegion;
+            }
+            var bytes = await File.ReadAllBytesAsync(_desiredImagePath);
             ImageData = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
-            _secondRectangle = ReviewSecondRegion;
-            if (_firstRectangle.HasValue && _secondRectangle.HasValue)
+            if (PreviousImage is not null)
+            {
+                _currentStep = EnumRegionStep.Done;
+            }
+            else if (_firstRectangle.HasValue && _secondRectangle.HasValue)
             {
                 _currentStep = EnumRegionStep.Done;
             }
@@ -221,16 +253,16 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         _renderedImageWidth = x;
         _renderedImageHeight = y;
     }
-
-
-
     private Rectangle? GetScaledCropRectangle(Rectangle? rect)
     {
-        if (rect is null || _renderedImageWidth == 0 || _renderedImageHeight == 0)
+        if (rect is null)
         {
             return null;
         }
-
+        if (_renderedImageWidth == 0 || _renderedImageHeight == 0)
+        {
+            return rect; //try this way.
+        }
         double scaleX = (double)_naturalImageWidth / _renderedImageWidth;
         double scaleY = (double)_naturalImageHeight / _renderedImageHeight;
         return new Rectangle(
@@ -243,6 +275,11 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
 
     public TwoRegionImageEntry GetTwoRegionEntry()
     {
+        //if i find later i need, then rethink.
+        if (PreviousImage is not null)
+        {
+            throw new CustomBasicException("You already sent this.  so no need to do again");
+        }
         TwoRegionImageEntry output = new()
         {
             ImageFile = ImagePath,
@@ -355,6 +392,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
     {
         return _currentStep switch
         {
+            EnumRegionStep.Done => new(),
             EnumRegionStep.SelectingSecond when _secondRectangle is not null => _secondRectangle.Value,
             _ when _firstRectangle is not null => _firstRectangle.Value,
             _ => new()
