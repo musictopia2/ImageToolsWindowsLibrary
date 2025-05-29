@@ -1,0 +1,25 @@
+﻿@if (ShowRetainedOnly)
+{
+    @ChildContent
+    <br />
+    <img style="max-width: 100%; display: block;" src="@GetRemainingImageBase64()" />
+    return;
+}
+<div>
+    @ChildContent
+</div>
+<div style="position: relative; display: inline-block;">
+    <img src="@_desiredImagedData" style="max-width: 100%; display: block;" @onmousedown="HandleClick" />
+    @if (_cropHeightSelected is not null)
+    {
+        <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                background-color: white;
+                width: 100%;
+                height: @_cropHeightSelected px;">
+        </div>
+    }
+    
+</div>

@@ -24,4 +24,18 @@ public static class RectangleExtensions
         int height = maxY - topY;
         return new Rectangle(suggestion.X, topY, suggestion.Width, height);
     }
+    public static Rectangle TrimFromTop(this Rectangle region, int trimHeight)
+    {
+        if (trimHeight < 0 || trimHeight >= region.Height)
+        {
+            throw new ArgumentOutOfRangeException(nameof(trimHeight));
+        }
+
+        return new Rectangle(
+            region.X,
+            region.Y + trimHeight,
+            region.Width,
+            region.Height - trimHeight
+        );
+    }
 }
