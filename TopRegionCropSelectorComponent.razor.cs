@@ -31,6 +31,10 @@ public partial class TopRegionCropSelectorComponent
     public EventCallback<int?> CropHeightChanged { get; set; }
 
 
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public EventCallback OnSave { get; set; }
+
     private readonly ImageCropHelper _cropHelper = new();
     private string? _lastImagePath = null;
 
@@ -68,6 +72,9 @@ public partial class TopRegionCropSelectorComponent
                 break;
             case EnumKey.Up:
                 UpArrowClicked();
+                break;
+            case EnumKey.F1:
+                OnSave.InvokeAsync();
                 break;
         }
     }
