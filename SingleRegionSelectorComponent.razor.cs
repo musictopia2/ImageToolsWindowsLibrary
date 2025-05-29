@@ -33,6 +33,9 @@ public partial class SingleRegionSelectorComponent
     private string? _lastImagePath = null;
     private int _naturalImageWidth;
     private int _naturalImageHeight;
+    private readonly ImageCropHelper _cropHelper = new();
+
+
 
     private void LoadImageSize()
     {
@@ -40,6 +43,7 @@ public partial class SingleRegionSelectorComponent
         _naturalImageWidth = bmp.Width;
         _naturalImageHeight = bmp.Height;
     }
+    private Rectangle? _previousInitial;
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
@@ -49,9 +53,9 @@ public partial class SingleRegionSelectorComponent
             ImagePath != _lastImagePath) // only reload if path changes
         {
             _lastImagePath = ImagePath;
-
+            _previousInitial = InitialCropRectangle;
             LoadImageSize();
-
+            _cropHelper.LoadImage(ImagePath);
             byte[] bytes = File.ReadAllBytes(ImagePath);
             string base64 = Convert.ToBase64String(bytes);
             ImageData = $"data:image/png;base64,{base64}";
@@ -68,6 +72,17 @@ public partial class SingleRegionSelectorComponent
                 StartPoint = null;
                 EndPoint = null;
             }
+            return;
+        }
+        if (_previousInitial != InitialCropRectangle)
+        {
+            _previousInitial = InitialCropRectangle;
+            if (InitialCropRectangle is Rectangle rect)
+            {
+                StartPoint = new Point(rect.X, rect.Y);
+                EndPoint = new Point(rect.X + rect.Width, rect.Y + rect.Height);
+                GenerateCroppedImage();
+            }
         }
     }
     public void GenerateCroppedImage()
@@ -78,28 +93,17 @@ public partial class SingleRegionSelectorComponent
         }
 
         var rect = GetSelectionRectangle();
-        if (rect is null || _renderedImageWidth == 0 || _renderedImageHeight == 0)
+        if (rect is null)
         {
             return;
         }
 
-        // Compute scale factors from rendered image to actual image size
-        double scaleX = (double)_naturalImageWidth / _renderedImageWidth;
-        double scaleY = (double)_naturalImageHeight / _renderedImageHeight;
-
-        // Apply scaling to get actual image-space crop
-        var scaledRect = new Rectangle(
-            (int)(rect.Value.X * scaleX),
-            (int)(rect.Value.Y * scaleY),
-            (int)(rect.Value.Width * scaleX),
-            (int)(rect.Value.Height * scaleY)
-        );
-
-        using var bmp = new Bitmap(ImagePath);
-        using var cropped = bmp.Clone(scaledRect, bmp.PixelFormat);
-        using var ms = new MemoryStream();
-        cropped.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-        CroppedImageData = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+        var scaled = _cropHelper.ScaleRectangleToNatural(rect, _naturalImageWidth, _naturalImageHeight);
+        if (scaled is null)
+        {
+            return;
+        }
+        CroppedImageData = _cropHelper.CropImageBase64(scaled.Value);
     }
     private void HandleClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
     {
@@ -138,26 +142,18 @@ public partial class SingleRegionSelectorComponent
     public string GetCroppedImageBase64() => CroppedImageData;
     public Rectangle? GetScaledCropRectangle()
     {
-        var rect = GetSelectionRectangle();
-        if (rect is null || _renderedImageWidth == 0 || _renderedImageHeight == 0)
-        {
-            return null;
-        }
-
-        double scaleX = (double)_naturalImageWidth / _renderedImageWidth;
-        double scaleY = (double)_naturalImageHeight / _renderedImageHeight;
-        return new Rectangle(
-            (int)(rect.Value.X * scaleX),
-            (int)(rect.Value.Y * scaleY),
-            (int)(rect.Value.Width * scaleX),
-            (int)(rect.Value.Height * scaleY)
-        );
+        return _cropHelper.ScaleRectangleToNatural(GetSelectionRectangle(), _renderedImageWidth, _renderedImageHeight);
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await GetRenderedImageSizeAsync();
+            if (InitialCropRectangle is not null && ShowCroppedImage)
+            {
+                GenerateCroppedImage();
+                StateHasChanged();
+            }
         }
     }
     private void LeftArrowClicked()

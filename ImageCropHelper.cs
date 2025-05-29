@@ -16,21 +16,25 @@ internal class ImageCropHelper
     public (int width, int height) GetNaturalSize()
         => (_naturalWidth, _naturalHeight);
 
-    public Rectangle ScaleRectangleToNatural(Rectangle renderedRect, int renderedWidth, int renderedHeight)
+    public Rectangle? ScaleRectangleToNatural(Rectangle? renderedRect, int renderedWidth, int renderedHeight)
     {
+        if (renderedRect is null)
+        {
+            return null;
+        }
         if (renderedWidth == 0 || renderedHeight == 0)
         {
-            return Rectangle.Empty;
+            return renderedRect;
         }
 
         double scaleX = (double)_naturalWidth / renderedWidth;
         double scaleY = (double)_naturalHeight / renderedHeight;
 
         return new Rectangle(
-            (int)(renderedRect.X * scaleX),
-            (int)(renderedRect.Y * scaleY),
-            (int)(renderedRect.Width * scaleX),
-            (int)(renderedRect.Height * scaleY)
+            (int)(renderedRect.Value.X * scaleX),
+            (int)(renderedRect.Value.Y * scaleY),
+            (int)(renderedRect.Value.Width * scaleX),
+            (int)(renderedRect.Value.Height * scaleY)
         );
     }
 

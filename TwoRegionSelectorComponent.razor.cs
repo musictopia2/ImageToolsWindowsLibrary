@@ -253,26 +253,6 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         _renderedImageWidth = x;
         _renderedImageHeight = y;
     }
-    private Rectangle? GetScaledCropRectangle(Rectangle? rect)
-    {
-        if (rect is null)
-        {
-            return null;
-        }
-        if (_renderedImageWidth == 0 || _renderedImageHeight == 0)
-        {
-            return rect; //try this way.
-        }
-        double scaleX = (double)_naturalImageWidth / _renderedImageWidth;
-        double scaleY = (double)_naturalImageHeight / _renderedImageHeight;
-        return new Rectangle(
-            (int)(rect.Value.X * scaleX),
-            (int)(rect.Value.Y * scaleY),
-            (int)(rect.Value.Width * scaleX),
-            (int)(rect.Value.Height * scaleY)
-        );
-    }
-
     public TwoRegionImageEntry GetTwoRegionEntry()
     {
         //if i find later i need, then rethink.
@@ -364,7 +344,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             return "";
         }
-        var scaledRect = GetScaledCropRectangle(_firstRectangle);
+        var scaledRect = _cropHelper.ScaleRectangleToNatural(_firstRectangle, _renderedImageWidth, _renderedImageHeight);
         return _cropHelper.CropImageBase64(scaledRect!.Value);
     }
     private string GetSecondRegionImageBase64()
@@ -373,7 +353,7 @@ public partial class TwoRegionSelectorComponent(IJSRuntime JSRuntime)
         {
             return "";
         }
-        var scaledRect = GetScaledCropRectangle(_secondRectangle);
+        var scaledRect = _cropHelper.ScaleRectangleToNatural(_secondRectangle, _renderedImageWidth, _renderedImageHeight);
         return _cropHelper.CropImageBase64(scaledRect!.Value);
     }
 
