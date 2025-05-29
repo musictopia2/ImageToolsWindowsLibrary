@@ -17,18 +17,26 @@ public partial class TopRegionCropSelectorComponent
     [Parameter]
     public bool ShowRetainedOnly { get; set; } = false;
 
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    [Parameter]
-    public EventCallback<int> OnTrimHeightChanged { get; set; }
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RenderFragment? ChildContent { get; set; }
 
 
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int? CropHeight { get; set; }
+
+    [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public EventCallback<int?> CropHeightChanged { get; set; }
+
+
     private readonly ImageCropHelper _cropHelper = new();
     private string? _lastImagePath = null;
 
-    private int? _cropHeightSelected = null;
+    //when doing for reals, will set the suggestion to 60.
+    //can change to what it really is.
+
 
     private string? _desiredImagedData = null;
     //private int _naturalImageWidth;
@@ -49,7 +57,7 @@ public partial class TopRegionCropSelectorComponent
     }
     private void Keys_KeyUp(EnumKey key)
     {
-        if (_cropHeightSelected is null)
+        if (CropHeight is null)
         {
             return; // no regions selected yet
         }
@@ -65,25 +73,31 @@ public partial class TopRegionCropSelectorComponent
     }
     private void DownArrowClicked()
     {
-        _cropHeightSelected++;
-        OnTrimHeightChanged.InvokeAsync(_cropHeightSelected!.Value);
+        CropHeight++;
+        CropHeightChanged.InvokeAsync(CropHeight);
         StateHasChanged();
     }
     private void UpArrowClicked()
     {
-        _cropHeightSelected--;
-        OnTrimHeightChanged.InvokeAsync(_cropHeightSelected!.Value);
+        CropHeight--;
+        CropHeightChanged.InvokeAsync(CropHeight);
         StateHasChanged();
     }
+    private Rectangle _previousBounds;
     protected override Task OnParametersSetAsync()
     {
-        _cropHeightSelected = SuggestedTrimHeight;
+        if (_previousBounds != RegionBounds)
+        {
+            _previousBounds = RegionBounds;
+            CropHeight = SuggestedTrimHeight;
+        }
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
             ImagePath != _lastImagePath) // only reload if path changes
         {
             _lastImagePath = ImagePath;
             _cropHelper.LoadImage(_lastImagePath);
+            CropHeight = SuggestedTrimHeight;
             //var (width, height) = _cropHelper.GetNaturalSize();
             //_naturalImageWidth = width;
             //_naturalImageHeight = height;
@@ -95,14 +109,14 @@ public partial class TopRegionCropSelectorComponent
     {
         return new Rectangle(
             RegionBounds.X,
-            RegionBounds.Y + _cropHeightSelected!.Value,
+            RegionBounds.Y + CropHeight!.Value,
             RegionBounds.Width,
-            RegionBounds.Height - _cropHeightSelected.Value
+            RegionBounds.Height - CropHeight.Value
         );
     }
     private string GetRemainingImageBase64()
     {
-        if (_cropHeightSelected is null)
+        if (CropHeight is null)
         {
             return "";
         }
@@ -114,7 +128,12 @@ public partial class TopRegionCropSelectorComponent
         {
             return; //has to ignore because you already set the suggestion.  you have to use the keyboard from here
         }
-        _cropHeightSelected = (int) e.OffsetY;
-        OnTrimHeightChanged.InvokeAsync(_cropHeightSelected.Value);
+        CropHeight = (int) e.OffsetY;
+        CropHeightChanged.InvokeAsync(CropHeight);
+    }
+    private void ClearSelection()
+    {
+        CropHeight = null;
+        CropHeightChanged.InvokeAsync(CropHeight);
     }
 }
