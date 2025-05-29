@@ -38,4 +38,31 @@ public static class RectangleExtensions
             region.Height - trimHeight
         );
     }
+    /// <summary>
+    /// Returns a new rectangle widened by <paramref name="widthRequested"/> pixels to the right.
+    /// If <paramref name="widthRequested"/> is 0, returns the original rectangle.
+    /// Throws if <paramref name="widthRequested"/> is less than 0.
+    /// </summary>
+    /// <param name="region">Original rectangle</param>
+    /// <param name="widthRequested">Number of pixels to widen to the right</param>
+    /// <returns>New widened rectangle</returns>
+    public static Rectangle WidenToRight(this Rectangle region, int widthRequested)
+    {
+        if (widthRequested < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(widthRequested), "Width requested must be zero or positive.");
+        }
+
+        if (widthRequested == 0)
+        {
+            return region;
+        }
+
+        return new Rectangle(
+            region.X,
+            region.Y,
+            region.Width + widthRequested,
+            region.Height
+        );
+    }
 }

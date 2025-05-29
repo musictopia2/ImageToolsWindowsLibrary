@@ -1,0 +1,19 @@
+﻿
+<div>
+    @ChildContent
+</div>
+
+<StackLayout>
+    <StackItem Length="@ContainerWidth">
+        <img src="@_adjustedRegionImageData" style="max-width: 100%; display: block;"  />
+        @if (OnSave.HasDelegate)
+        {
+            <div>Use F1 To Save</div>
+        }
+    </StackItem>
+    <StackItem Length="@ContainerWidth">
+        <StackItem Length="@ContainerWidth">
+            <img src="@_referenceExpandedImageData" style="max-width: 100%; display: block;" />
+        </StackItem>
+    </StackItem>
+</StackLayout>
