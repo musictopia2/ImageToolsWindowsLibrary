@@ -65,28 +65,34 @@ public partial class TopRegionCropSelectorComponent
         {
             return; // no regions selected yet
         }
+
         switch (key)
         {
             case EnumKey.Down:
-                DownArrowClicked();
+                AdjustCrop(1);
                 break;
             case EnumKey.Up:
-                UpArrowClicked();
+                AdjustCrop(-1);
+                break;
+            case EnumKey.PageDown:
+                AdjustCrop(10);
+                break;
+            case EnumKey.PageUp:
+                AdjustCrop(-10);
                 break;
             case EnumKey.F1:
                 OnSave.InvokeAsync();
                 break;
         }
     }
-    private void DownArrowClicked()
+
+    private void AdjustCrop(int delta)
     {
-        CropHeight++;
-        CropHeightChanged.InvokeAsync(CropHeight);
-        StateHasChanged();
-    }
-    private void UpArrowClicked()
-    {
-        CropHeight--;
+        CropHeight += delta;
+        if (CropHeight < 0)
+        {
+            CropHeight = 0; // Prevent negative height
+        }
         CropHeightChanged.InvokeAsync(CropHeight);
         StateHasChanged();
     }
