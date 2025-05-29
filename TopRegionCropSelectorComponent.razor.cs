@@ -97,6 +97,7 @@ public partial class TopRegionCropSelectorComponent
         {
             _previousBounds = RegionBounds;
             CropHeight = SuggestedTrimHeight;
+            CropHeightChanged.InvokeAsync(CropHeight);
         }
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
@@ -105,6 +106,7 @@ public partial class TopRegionCropSelectorComponent
             _lastImagePath = ImagePath;
             _cropHelper.LoadImage(_lastImagePath);
             CropHeight = SuggestedTrimHeight;
+            CropHeightChanged.InvokeAsync(CropHeight);
             //var (width, height) = _cropHelper.GetNaturalSize();
             //_naturalImageWidth = width;
             //_naturalImageHeight = height;
