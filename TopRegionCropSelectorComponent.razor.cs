@@ -97,13 +97,13 @@ public partial class TopRegionCropSelectorComponent
         StateHasChanged();
     }
     private Rectangle _previousBounds;
-    protected override Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        if (_previousBounds != RegionBounds)
+        bool regionChanged = _previousBounds != RegionBounds;
+        if (regionChanged)
         {
             _previousBounds = RegionBounds;
-            CropHeight = SuggestedTrimHeight;
-            CropHeightChanged.InvokeAsync(CropHeight);
+            SetSuggestedCropHeight();
         }
         if (!string.IsNullOrWhiteSpace(ImagePath) &&
             File.Exists(ImagePath) &&
@@ -111,15 +111,22 @@ public partial class TopRegionCropSelectorComponent
         {
             _lastImagePath = ImagePath;
             _cropHelper.LoadImage(_lastImagePath);
-            CropHeight = SuggestedTrimHeight;
-            CropHeightChanged.InvokeAsync(CropHeight);
-            //var (width, height) = _cropHelper.GetNaturalSize();
-            //_naturalImageWidth = width;
-            //_naturalImageHeight = height;
+            SetSuggestedCropHeight();
+            _desiredImagedData = _cropHelper.CropImageBase64(RegionBounds);
+            return;
+        }
+        if (regionChanged)
+        {
             _desiredImagedData = _cropHelper.CropImageBase64(RegionBounds);
         }
-        return base.OnParametersSetAsync();
     }
+
+    private void SetSuggestedCropHeight()
+    {
+        CropHeight = SuggestedTrimHeight;
+        CropHeightChanged.InvokeAsync(CropHeight);
+    }
+
     private Rectangle GetTrimmedRegion()
     {
         return new Rectangle(
