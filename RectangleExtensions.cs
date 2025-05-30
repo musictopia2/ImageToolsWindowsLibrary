@@ -65,4 +65,29 @@ public static class RectangleExtensions
             region.Height
         );
     }
+    /// <summary>
+    /// Returns a new rectangle with its height adjusted from the bottom by <paramref name="heightDelta"/>.
+    /// Positive values extend the height downward.
+    /// Negative values trim the height upward from the bottom.
+    /// Throws if the resulting height is less than 1.
+    /// </summary>
+    /// <param name="region">Original rectangle</param>
+    /// <param name="heightDelta">Amount to adjust height by (positive to extend, negative to trim)</param>
+    /// <returns>Adjusted rectangle</returns>
+    public static Rectangle AdjustHeightFromBottom(this Rectangle region, int heightDelta)
+    {
+        int newHeight = region.Height + heightDelta;
+
+        if (newHeight < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(heightDelta), "Resulting height must be at least 1.");
+        }
+
+        return new Rectangle(
+            region.X,
+            region.Y,
+            region.Width,
+            newHeight
+        );
+    }
 }
