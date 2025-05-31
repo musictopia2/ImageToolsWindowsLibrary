@@ -1,5 +1,5 @@
 namespace ImageToolsWindowsLibrary;
-public partial class PartialTrimSelectorComponent
+public partial class PartialTrimSelectorComponent(IJSRuntime js)
 {
     private enum EnumTrimViewModel
     {
@@ -21,9 +21,10 @@ public partial class PartialTrimSelectorComponent
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public float ZoomLevel { get; set; } = 4;
+    
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public string ContainerWidth { get; set; } = "40vw";
+    public string ContainerHeight { get; set; } = "80vh";
     private ElementReference _imageRef; //not sure if i need this or not (?)
     private string? _referenceImage;
     private string? _regionImage;
@@ -33,8 +34,8 @@ public partial class PartialTrimSelectorComponent
     private Point? _endPoint;
     private string? _topImageData;
     private string? _bottomImageData;
-    private BasicList<Rectangle> _topRemovals = [];
-    private BasicList<Rectangle> _bottomRemovals = [];
+    private readonly BasicList<Rectangle> _topRemovals = [];
+    private readonly BasicList<Rectangle> _bottomRemovals = [];
     private AppKeyboardListener? _keys;
     private string? _lastImagePath = null;
     private Rectangle _previousBounds;
@@ -145,32 +146,55 @@ public partial class PartialTrimSelectorComponent
     }
     private void LoadZoomedViews()
     {
-        float rawZoomHeight = RegionBounds.Height / ZoomLevel;
-        int zoomHeight = Math.Max(1, (int)Math.Round(rawZoomHeight));
+        int trimHeight = Math.Max(1, SuggestedTrimHeight);
 
         var topSlice = new Rectangle(
             RegionBounds.X,
             RegionBounds.Y,
             RegionBounds.Width,
-            zoomHeight
+            trimHeight
         );
 
         var bottomSlice = new Rectangle(
             RegionBounds.X,
-            RegionBounds.Y + RegionBounds.Height - zoomHeight,
+            RegionBounds.Y + RegionBounds.Height - trimHeight,
             RegionBounds.Width,
-            zoomHeight
+            trimHeight
         );
-        _topImageData = _cropHelper.CropImageBase64(topSlice);
-        _bottomImageData = _cropHelper.CropImageBase64(bottomSlice);
+
+        _topImageData = GetZoomedBase64(topSlice);
+        _bottomImageData = GetZoomedBase64(bottomSlice);
     }
-    private void HandleImageClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
+    private string GetZoomedBase64(Rectangle region)
     {
+        using var bmp = _cropHelper.GetRegionBitmap(region);
+        int newWidth = (int)(bmp.Width * ZoomLevel);
+        int newHeight = (int)(bmp.Height * ZoomLevel);
+
+        using var zoomedBmp = new Bitmap(newWidth, newHeight);
+        using (var g = Graphics.FromImage(zoomedBmp))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            g.DrawImage(bmp, 0, 0, newWidth, newHeight);
+        }
+
+        return ImageCropHelper.BitmapToBase64(zoomedBmp);
+    }
+    private async Task HandleImageClickAsync(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
+    {
+
+        // Scale down coordinates based on the zoom level
+        //int clickedY = (int)(e.OffsetY / ZoomLevel);
+        //int clickedX = (int)(e.OffsetX / ZoomLevel);
         int clickedY = (int)e.OffsetY;
+        int clickedX = (int)e.OffsetX;
+
         if (_currentMode == EnumTrimViewModel.None)
         {
             float rawZoomHeight = RegionBounds.Height / ZoomLevel;
             int zoomHeight = Math.Max(1, (int)Math.Round(rawZoomHeight));
+
             if (clickedY < zoomHeight / 2)
             {
                 _currentMode = EnumTrimViewModel.Top;
@@ -179,16 +203,41 @@ public partial class PartialTrimSelectorComponent
             {
                 _currentMode = EnumTrimViewModel.Bottom;
             }
+
             StateHasChanged();
-            return; //if you need to choose a mode, this is used to choose a mode you need.
+            return;
         }
-        if (_startPoint.HasValue == false)
+
+        // Handle selection based on current mode
+        if (!_startPoint.HasValue)
         {
-            _startPoint = new Point((int)e.OffsetX, clickedY);
+            int startY = clickedY;
+
+            if (_currentMode == EnumTrimViewModel.Top)
+            {
+                startY = 0; // Force top alignment
+            }
+
+            _startPoint = new Point(clickedX, startY);
         }
-        else if (_endPoint.HasValue == false)
+        else if (!_endPoint.HasValue)
         {
-            _endPoint = new Point((int)e.OffsetX, clickedY);
+            int endY = clickedY;
+
+            if (_currentMode == EnumTrimViewModel.Bottom)
+            {
+                int heights = await js!.GetContainerHeight(_imageRef);
+                if (heights == 0)
+                {
+                    throw new CustomBasicException("Cannot be 0 for the heights");
+                }
+                endY = heights;
+                // Calculate zoomed height to get bottom
+                //int zoomHeight = Math.Max(1, (int)Math.Round(RegionBounds.Height / ZoomLevel));
+                //endY = RegionBounds.Height * (int)ZoomLevel; // Force bottom alignment
+            }
+
+            _endPoint = new Point(clickedX, endY);
         }
     }
     private static string ResizeIcon()
@@ -214,6 +263,11 @@ public partial class PartialTrimSelectorComponent
     private EnumAdjustmentMode _adjustmentMode = EnumAdjustmentMode.Move;
     private void SetMode(EnumAdjustmentMode newMode, bool forceRender = true)
     {
+        if (_startPoint.HasValue == false ||  _endPoint.HasValue == false)
+        {
+            return; //ignore because you are not even editing something.
+        } 
+        
         _adjustmentMode = newMode; //can be anything no matter what (no exceptions).
         if (forceRender)
         {
@@ -373,8 +427,7 @@ public partial class PartialTrimSelectorComponent
 
         _startPoint = null;
         _endPoint = null;
-
-        //the top or bottom would have to change accordingly.
+        RebuildZoomedImage();
     }
     public void ShowPreview()
     {
@@ -394,47 +447,80 @@ public partial class PartialTrimSelectorComponent
 
         _regionImage = ImageCropHelper.BitmapToBase64(bmp);
     }
-
-    private void RebuildZoomedImage(EnumTrimViewModel mode)
+    private void RebuildZoomedImage()
     {
-        float rawZoomHeight = RegionBounds.Height / ZoomLevel;
-        int zoomHeight = Math.Max(1, (int)Math.Round(rawZoomHeight));
+        int trimHeight = Math.Max(1, SuggestedTrimHeight);
 
-        Rectangle slice = mode switch
+        Rectangle slice = _currentMode switch
         {
             EnumTrimViewModel.Top => new Rectangle(
                 RegionBounds.X,
                 RegionBounds.Y,
                 RegionBounds.Width,
-                zoomHeight),
+                trimHeight),
 
             EnumTrimViewModel.Bottom => new Rectangle(
                 RegionBounds.X,
-                RegionBounds.Y + RegionBounds.Height - zoomHeight,
+                RegionBounds.Y + RegionBounds.Height - trimHeight,
                 RegionBounds.Width,
-                zoomHeight),
+                trimHeight),
 
             _ => throw new CustomBasicException("Invalid mode for rebuilding image")
         };
 
         using var bmp = _cropHelper.GetRegionBitmap(slice);
-        using var g = Graphics.FromImage(bmp);
-        using var brush = new SolidBrush(Color.White);
 
-        var removals = mode == EnumTrimViewModel.Top ? _topRemovals : _bottomRemovals;
-
-        foreach (var rect in removals)
+        // Apply white-out removal areas
+        using (var g = Graphics.FromImage(bmp))
+        using (var brush = new SolidBrush(Color.White))
         {
-            int localX = rect.X - slice.X;
-            int localY = rect.Y - slice.Y;
-            g.FillRectangle(brush, localX, localY, rect.Width, rect.Height);
+            var removals = _currentMode switch
+            {
+                EnumTrimViewModel.Top => _topRemovals,
+                EnumTrimViewModel.Bottom => _bottomRemovals,
+                _ => throw new CustomBasicException("Invalid mode for removals")
+            };
+
+            foreach (var removal in removals)
+            {
+                // Translate to local space
+                int localX = removal.X - slice.X;
+                int localY = removal.Y - slice.Y;
+
+                // Clip to bounds
+                Rectangle localRect = new(localX, localY, removal.Width, removal.Height);
+                Rectangle bounds = new(0, 0, bmp.Width, bmp.Height);
+
+                if (bounds.IntersectsWith(localRect))
+                {
+                    Rectangle clipped = Rectangle.Intersect(bounds, localRect);
+                    g.FillRectangle(brush, clipped);
+                }
+            }
         }
 
-        string result = ImageCropHelper.BitmapToBase64(bmp);
-        if (mode == EnumTrimViewModel.Top)
+        //  Zoom and encode
+        int zoomedWidth = (int)(bmp.Width * ZoomLevel);
+        int zoomedHeight = (int)(bmp.Height * ZoomLevel);
+
+        using var zoomedBmp = new Bitmap(zoomedWidth, zoomedHeight);
+        using (var zoomG = Graphics.FromImage(zoomedBmp))
+        {
+            zoomG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            zoomG.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            zoomG.DrawImage(bmp, 0, 0, zoomedWidth, zoomedHeight);
+        }
+
+        string result = ImageCropHelper.BitmapToBase64(zoomedBmp);
+
+        if (_currentMode == EnumTrimViewModel.Top)
+        {
             _topImageData = result;
+        }
         else
+        {
             _bottomImageData = result;
+        }
 
         StateHasChanged();
     }
