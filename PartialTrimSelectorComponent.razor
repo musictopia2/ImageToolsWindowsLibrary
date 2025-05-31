@@ -1,0 +1,128 @@
+﻿
+<div>
+    @ChildContent
+</div>
+
+<StackLayout>
+    <StackItem Length="@ContainerWidth">
+        <LeftOverLayout>
+            <TopContent>
+                @if (OnTrimsConfirmed.HasDelegate)
+                {
+                    <div>Use F1 To Confirm All Trims And Save</div>
+                }
+            </TopContent>
+            <MainContent>
+                <div style="position: relative; display: inline-block;">
+                    <img src="@CurrentImage" @ref="_imageRef" style="max-width: 100%; display: block;" @onclick="HandleImageClick" />
+                    @if (_startPoint.HasValue)
+                    {
+                        <div style="
+                                position: absolute;
+                                width: 8px;
+                                height: 8px;
+                                background: red;
+                                border-radius: 4px;
+                                    left: @(_startPoint.Value.X - 4)px;
+                                    top: @(_startPoint.Value.Y - 4)px;">
+                        </div>
+                    }
+
+                    @if (_endPoint.HasValue)
+                    {
+                        <div style="
+                                position: absolute;
+                                width: 8px;
+                                height: 8px;
+                                background: blue;
+                                border-radius: 4px;
+                                left: @(_endPoint.Value.X - 4)px;
+                                top: @(_endPoint.Value.Y - 4)px;">
+                        </div>
+                    }
+
+                    @if (_startPoint.HasValue && _endPoint.HasValue)
+                    {
+                        <div style="
+                                position: absolute;
+                                border: 2px dashed lime;
+                                left: @(Math.Min(_startPoint.Value.X, _endPoint.Value.X))px;
+                                top: @(Math.Min(_startPoint.Value.Y, _endPoint.Value.Y))px;
+                                width: @(Math.Abs(_endPoint.Value.X - _startPoint.Value.X))px;
+                                height: @(Math.Abs(_endPoint.Value.Y - _startPoint.Value.Y))px;">
+                        </div>
+                    }
+                </div>
+            </MainContent>
+            <BottomContent>
+                <StackLayout ItemSpacing="10px">
+                    
+                    <StackItem>
+                        <PrimaryButton OnClick="ClearCurrentSelection">
+                            Clear Current Selection
+                        </PrimaryButton>
+                        <PrimaryButton OnClick="ConfirmCurrentSelection">
+                            Confirm Current Selection
+                        </PrimaryButton>
+                        <PrimaryButton OnClick="ShowPreview">
+                            Show Preview
+                        </PrimaryButton>
+                        <PrimaryButton OnClick="ClearRegions">
+                            Start Completely Over
+                        </PrimaryButton>
+                    </StackItem>
+
+                    <StackItem Length="150px">
+                        Selection Mode
+                        @GetModeSvgIcon(_adjustmentMode)
+                    </StackItem>
+                    <StackItem>
+                        <div>
+                            F4 For Move
+                        </div>
+                        <div>
+                            F5 For Resize
+                        </div>
+                        <div>
+                            F6 For Adjust Edges
+                        </div>
+                    </StackItem>
+                    
+                </StackLayout>
+            </BottomContent>
+        </LeftOverLayout>
+         
+
+    </StackItem>
+    <StackItem Length="@ContainerWidth">
+        <StackItem Length="@ContainerWidth">
+            <img src="@_referenceImage" style="max-width: 100%; display: block;" />
+        </StackItem>
+    </StackItem>
+</StackLayout>
+@code {
+    private RenderFragment GetModeSvgIcon(EnumAdjustmentMode mode) => mode switch
+    {
+
+        EnumAdjustmentMode.Move => builder =>
+    {
+        builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M4 8V4m0 0h4M4 4l7.5 7.5M20 16v4m0 0h-4m4 0l-7.5-7.5"" />
+</svg>");
+    }
+        ,
+        EnumAdjustmentMode.Resize => builder =>
+        {
+            builder.AddMarkupContent(0, ResizeIcon());
+        }
+        ,
+        EnumAdjustmentMode.AdjustEdges => builder =>
+        {
+            builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M12 4v16m8-8H4"" />
+</svg>");
+        }
+        ,
+        _ => builder => { }
+    };
+}

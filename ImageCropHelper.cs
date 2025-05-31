@@ -58,4 +58,26 @@ internal class ImageCropHelper
         cropped.Save(ms, ImageFormat.Png);
         return $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
     }
+    public Bitmap GetRegionBitmap(Rectangle region)
+    {
+        if (string.IsNullOrEmpty(_imagePath))
+        {
+            throw new InvalidOperationException("Image not loaded.");
+        }
+
+        using var bmp = new Bitmap(_imagePath);
+        var cropRect = Rectangle.Intersect(region, new Rectangle(0, 0, bmp.Width, bmp.Height));
+        if (cropRect.Width == 0 || cropRect.Height == 0)
+        {
+            throw new ArgumentException("Invalid region size.");
+        }
+
+        return bmp.Clone(cropRect, bmp.PixelFormat); // clone so it can be manipulated
+    }
+    public static string BitmapToBase64(Bitmap bmp)
+    {
+        using var ms = new MemoryStream();
+        bmp.Save(ms, ImageFormat.Png);
+        return $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+    }
 }
