@@ -409,20 +409,20 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
         int height = Math.Abs(_endPoint.Value.Y - _startPoint.Value.Y);
         var localRect = new Rectangle(x, y, width, height);
 
-        Rectangle translatedRect = _currentMode switch
-        {
-            EnumTrimViewModel.Top => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + localRect.Y, localRect.Width, localRect.Height),
-            EnumTrimViewModel.Bottom => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + RegionBounds.Height - (int)(RegionBounds.Height / ZoomLevel) + localRect.Y, localRect.Width, localRect.Height),
-            _ => throw new CustomBasicException("Invalid mode for confirming selection")
-        };
+        //Rectangle translatedRect = _currentMode switch
+        //{
+        //    EnumTrimViewModel.Top => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + localRect.Y, localRect.Width, localRect.Height),
+        //    EnumTrimViewModel.Bottom => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + RegionBounds.Height - (int)(RegionBounds.Height / ZoomLevel) + localRect.Y, localRect.Width, localRect.Height),
+        //    _ => throw new CustomBasicException("Invalid mode for confirming selection")
+        //};
 
         if (_currentMode == EnumTrimViewModel.Top)
         {
-            _topRemovals.Add(translatedRect);
+            _topRemovals.Add(localRect);
         }
         else if (_currentMode == EnumTrimViewModel.Bottom)
         {
-            _bottomRemovals.Add(translatedRect);
+            _bottomRemovals.Add(localRect);
         }
 
         _startPoint = null;
@@ -484,19 +484,25 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
             foreach (var removal in removals)
             {
                 // Translate to local space
-                int localX = removal.X - slice.X;
-                int localY = removal.Y - slice.Y;
+                //int localX = removal.X - slice.X;
+                //int localY = removal.Y - slice.Y;
 
-                // Clip to bounds
-                Rectangle localRect = new(localX, localY, removal.Width, removal.Height);
-                Rectangle bounds = new(0, 0, bmp.Width, bmp.Height);
+                //// Clip to bounds
+                //Rectangle localRect = new(localX, localY, removal.Width, removal.Height);
+                //Rectangle bounds = new(0, 0, bmp.Width, bmp.Height);
 
-                if (bounds.IntersectsWith(localRect))
-                {
-                    Rectangle clipped = Rectangle.Intersect(bounds, localRect);
-                    g.FillRectangle(brush, clipped);
-                }
+                //if (bounds.IntersectsWith(localRect))
+                //{
+                //    Rectangle clipped = Rectangle.Intersect(bounds, localRect);
+                //    g.FillRectangle(brush, clipped);
+                //}
+
+                g.FillRectangle(brush, removal); //try this way.
+
             }
+
+            //g.FillRectangle(brush, new(0, 0, 100, 100)); //check to see if i can even remove a rectangle here.
+
         }
 
         //  Zoom and encode
