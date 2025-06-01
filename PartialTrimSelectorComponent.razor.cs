@@ -21,7 +21,7 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public float ZoomLevel { get; set; } = 4;
-    
+
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string ContainerHeight { get; set; } = "80vh";
@@ -102,7 +102,7 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     private void PopulateInitialRegions()
     {
         _referenceImage = _cropHelper.CropImageBase64(RegionBounds);
-        
+
         _previousBounds = RegionBounds;
         LoadZoomedViews();
         ClearRegions();
@@ -263,11 +263,11 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     private EnumAdjustmentMode _adjustmentMode = EnumAdjustmentMode.Move;
     private void SetMode(EnumAdjustmentMode newMode, bool forceRender = true)
     {
-        if (_startPoint.HasValue == false ||  _endPoint.HasValue == false)
+        if (_startPoint.HasValue == false || _endPoint.HasValue == false)
         {
             return; //ignore because you are not even editing something.
-        } 
-        
+        }
+
         _adjustmentMode = newMode; //can be anything no matter what (no exceptions).
         if (forceRender)
         {
@@ -427,7 +427,26 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
 
         _startPoint = null;
         _endPoint = null;
-        RebuildZoomedImage();
+        //RebuildZoomedImage();
+    }
+    private BasicList<Rectangle> GetRemovalsForCurrentSlice
+    {
+        get
+        {
+            if (_currentMode == EnumTrimViewModel.None)
+            {
+                throw new CustomBasicException("No mode");
+            }
+            if (_currentMode == EnumTrimViewModel.Top)
+            { 
+                return _topRemovals;
+            }
+            if (_currentMode == EnumTrimViewModel.Bottom)
+            {
+                return _bottomRemovals;
+            }
+            throw new CustomBasicException("No mode");
+        }
     }
     public void ShowPreview()
     {
@@ -447,88 +466,86 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
 
         _regionImage = ImageCropHelper.BitmapToBase64(bmp);
     }
-    private void RebuildZoomedImage()
-    {
-        int trimHeight = Math.Max(1, SuggestedTrimHeight);
+    //private void RebuildZoomedImage()
+    //{
+    //    int trimHeight = Math.Max(1, SuggestedTrimHeight);
 
-        Rectangle slice = _currentMode switch
-        {
-            EnumTrimViewModel.Top => new Rectangle(
-                RegionBounds.X,
-                RegionBounds.Y,
-                RegionBounds.Width,
-                trimHeight),
+    //    Rectangle slice = _currentMode switch
+    //    {
+    //        EnumTrimViewModel.Top => new Rectangle(
+    //            RegionBounds.X,
+    //            RegionBounds.Y,
+    //            RegionBounds.Width,
+    //            trimHeight),
 
-            EnumTrimViewModel.Bottom => new Rectangle(
-                RegionBounds.X,
-                RegionBounds.Y + RegionBounds.Height - trimHeight,
-                RegionBounds.Width,
-                trimHeight),
+    //        EnumTrimViewModel.Bottom => new Rectangle(
+    //            RegionBounds.X,
+    //            RegionBounds.Y + RegionBounds.Height - trimHeight,
+    //            RegionBounds.Width,
+    //            trimHeight),
 
-            _ => throw new CustomBasicException("Invalid mode for rebuilding image")
-        };
+    //        _ => throw new CustomBasicException("Invalid mode for rebuilding image")
+    //    };
 
-        using var bmp = _cropHelper.GetRegionBitmap(slice);
+    //    using var bmp = _cropHelper.GetRegionBitmap(slice);
 
-        // Apply white-out removal areas
-        using (var g = Graphics.FromImage(bmp))
-        using (var brush = new SolidBrush(Color.White))
-        {
-            var removals = _currentMode switch
-            {
-                EnumTrimViewModel.Top => _topRemovals,
-                EnumTrimViewModel.Bottom => _bottomRemovals,
-                _ => throw new CustomBasicException("Invalid mode for removals")
-            };
+    //    // Apply white-out removal areas
+    //    using (var g = Graphics.FromImage(bmp))
+    //    using (var brush = new SolidBrush(Color.White))
+    //    {
+    //        var removals = _currentMode switch
+    //        {
+    //            EnumTrimViewModel.Top => _topRemovals,
+    //            EnumTrimViewModel.Bottom => _bottomRemovals,
+    //            _ => throw new CustomBasicException("Invalid mode for removals")
+    //        };
 
-            foreach (var removal in removals)
-            {
-                // Translate to local space
-                //int localX = removal.X - slice.X;
-                //int localY = removal.Y - slice.Y;
+    //        foreach (var removal in removals)
+    //        {
+    //            // Translate removal rectangle from global RegionBounds coordinates into local slice coordinates
+    //            int localX = removal.X - slice.X;
+    //            int localY = removal.Y - slice.Y;
 
-                //// Clip to bounds
-                //Rectangle localRect = new(localX, localY, removal.Width, removal.Height);
-                //Rectangle bounds = new(0, 0, bmp.Width, bmp.Height);
+    //            Rectangle localRect = new Rectangle(localX, localY, removal.Width, removal.Height);
 
-                //if (bounds.IntersectsWith(localRect))
-                //{
-                //    Rectangle clipped = Rectangle.Intersect(bounds, localRect);
-                //    g.FillRectangle(brush, clipped);
-                //}
+    //            // Clamp localRect so it stays within bmp bounds
+    //            Rectangle bmpBounds = new Rectangle(0, 0, bmp.Width, bmp.Height);
+    //            Rectangle clippedRect = Rectangle.Intersect(bmpBounds, localRect);
 
-                g.FillRectangle(brush, removal); //try this way.
+    //            if (!clippedRect.IsEmpty)
+    //            {
+    //                g.FillRectangle(brush, clippedRect);
+    //            }
+    //        }
 
-            }
+    //        //g.FillRectangle(brush, new(0, 0, 100, 100)); //check to see if i can even remove a rectangle here.
 
-            //g.FillRectangle(brush, new(0, 0, 100, 100)); //check to see if i can even remove a rectangle here.
+    //    }
 
-        }
+    //    //  Zoom and encode
+    //    int zoomedWidth = (int)(bmp.Width * ZoomLevel);
+    //    int zoomedHeight = (int)(bmp.Height * ZoomLevel);
 
-        //  Zoom and encode
-        int zoomedWidth = (int)(bmp.Width * ZoomLevel);
-        int zoomedHeight = (int)(bmp.Height * ZoomLevel);
+    //    using var zoomedBmp = new Bitmap(zoomedWidth, zoomedHeight);
+    //    using (var zoomG = Graphics.FromImage(zoomedBmp))
+    //    {
+    //        zoomG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+    //        zoomG.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+    //        zoomG.DrawImage(bmp, 0, 0, zoomedWidth, zoomedHeight);
+    //    }
 
-        using var zoomedBmp = new Bitmap(zoomedWidth, zoomedHeight);
-        using (var zoomG = Graphics.FromImage(zoomedBmp))
-        {
-            zoomG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-            zoomG.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-            zoomG.DrawImage(bmp, 0, 0, zoomedWidth, zoomedHeight);
-        }
+    //    string result = ImageCropHelper.BitmapToBase64(zoomedBmp);
 
-        string result = ImageCropHelper.BitmapToBase64(zoomedBmp);
+    //    if (_currentMode == EnumTrimViewModel.Top)
+    //    {
+    //        _topImageData = result;
+    //    }
+    //    else
+    //    {
+    //        _bottomImageData = result;
+    //    }
 
-        if (_currentMode == EnumTrimViewModel.Top)
-        {
-            _topImageData = result;
-        }
-        else
-        {
-            _bottomImageData = result;
-        }
-
-        StateHasChanged();
-    }
+    //    StateHasChanged();
+    //}
 
 }

@@ -49,6 +49,23 @@
                                             height: @(Math.Abs(_endPoint.Value.Y - _startPoint.Value.Y))px;">
                         </div>
                     }
+                    @if (_currentMode != EnumTrimViewModel.None)
+                    {
+
+                        var list = GetRemovalsForCurrentSlice;
+                        @foreach (var item in list)
+                        {
+                            <div style="
+                                position: absolute;
+                                background-color: white;
+                                left: @(item.X)px;
+                                top: @(item.Y)px;
+                                width: @(item.Width)px;
+                                height: @(item.Height)px;">
+                            </div>
+                        }
+                    }
+
                 </div>
             </div>
             
