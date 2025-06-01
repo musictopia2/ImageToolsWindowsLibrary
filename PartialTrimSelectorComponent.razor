@@ -2,6 +2,16 @@
 <div>
     @ChildContent
 </div>
+@* @if (TrimVerificationList is not null)
+{
+    <img src="@_referenceImage" style="max-width: 100%; display: block;" />
+    <div>
+        <PrimaryButton OnClick="SaveTrimTestPreview">
+            Save To Test File
+        </PrimaryButton>
+    </div>
+    return;
+} *@
 <div style="height: @ContainerHeight;">
     <StackLayout>
         <StackItem Length="65vw">
@@ -81,7 +91,7 @@
         @if (_currentMode != EnumTrimViewModel.None)
         {
             <PrimaryButton OnClick="ShowPreview">
-                Show Preview
+                Show Preview (F3)
             </PrimaryButton>
         }
         @if (_startPoint.HasValue && _endPoint.HasValue)
@@ -90,7 +100,7 @@
             Clear Current Selection
             </PrimaryButton>
             <PrimaryButton OnClick="ConfirmCurrentSelection">
-                Confirm Current Selection
+                Confirm Current Selection (F2)
             </PrimaryButton>
         
             <PrimaryButton OnClick="ClearRegions">

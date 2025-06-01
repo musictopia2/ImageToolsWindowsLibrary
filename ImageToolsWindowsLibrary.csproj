@@ -9,7 +9,7 @@
     <FeedType>Public</FeedType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="BasicBlazorLibrary" Version="9.0.29" />
+    <PackageReference Include="BasicBlazorLibrary" Version="9.0.31" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.5" />
     <PackageReference Include="WindowsKeyboardCapture" Version="9.0.2" />
   </ItemGroup>

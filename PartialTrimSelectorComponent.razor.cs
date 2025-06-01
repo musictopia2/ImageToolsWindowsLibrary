@@ -1,5 +1,5 @@
 namespace ImageToolsWindowsLibrary;
-public partial class PartialTrimSelectorComponent(IJSRuntime js)
+public partial class PartialTrimSelectorComponent(IJSRuntime js) : IAsyncDisposable
 {
     private enum EnumTrimViewModel
     {
@@ -21,7 +21,7 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public float ZoomLevel { get; set; } = 4;
-
+    private KeySuppressorClass? _suppress;
     [Parameter]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string ContainerHeight { get; set; } = "80vh";
@@ -70,6 +70,14 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
                 break;
             case EnumKey.F1:
                 ConfirmAllTrims();
+                break;
+            case EnumKey.F2:
+                ConfirmCurrentSelection();
+                StateHasChanged();
+                break;
+            case EnumKey.F3:
+                ShowPreview();
+                StateHasChanged();
                 break;
             case EnumKey.F4:
                 SetMode(EnumAdjustmentMode.Move, true);
@@ -127,11 +135,27 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     }
     private void ConfirmAllTrims()
     {
-        //lets give the parent both
-        BasicList<Rectangle> bounds = [];
-        bounds.AddRange(_topRemovals);
-        bounds.AddRange(_bottomRemovals);
-        OnTrimsConfirmed.InvokeAsync(bounds);
+        if (_startPoint.HasValue || _endPoint.HasValue)
+        {
+            return; //can't do anything because you are in the middle of something.
+        }
+        if (_currentMode != EnumTrimViewModel.None)
+        {
+            return; //should not confirm.  to force me to review the final results first.
+        }
+        BasicList<Rectangle> absoluteTrims = [];
+
+        foreach (var topTrim in _topRemovals)
+        {
+            absoluteTrims.Add(MapRemovalToFullImage(topTrim, EnumTrimViewModel.Top));
+        }
+
+        foreach (var bottomTrim in _bottomRemovals)
+        {
+            absoluteTrims.Add(MapRemovalToFullImage(bottomTrim, EnumTrimViewModel.Bottom));
+        }
+
+        OnTrimsConfirmed.InvokeAsync(absoluteTrims);
     }
     private void ClearRegions()
     {
@@ -340,28 +364,9 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
         {
             return;
         }
-        switch (_adjustmentMode)
-        {
-            case EnumAdjustmentMode.Move:
-                _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y - 1);
-                _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y - 1);
-                break;
+        // Always move top edge up by 1 (decreasing Y), increasing height
+        _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y - 1);
 
-            case EnumAdjustmentMode.Resize:
-                _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y - 1);
-                break;
-
-            case EnumAdjustmentMode.AdjustEdges:
-                if (_startPoint.Value.Y < _endPoint.Value.Y)
-                {
-                    _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y + 1);
-                }
-                else
-                {
-                    _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y + 1);
-                }
-                break;
-        }
         StateHasChanged();
     }
     private void DownArrowClicked()
@@ -370,28 +375,9 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
         {
             return;
         }
-        switch (_adjustmentMode)
-        {
-            case EnumAdjustmentMode.Move:
-                _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y + 1);
-                _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y + 1);
-                break;
+        // Always move top edge down by 1 (increasing Y), decreasing height
+        _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y + 1);
 
-            case EnumAdjustmentMode.Resize:
-                _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y + 1);
-                break;
-
-            case EnumAdjustmentMode.AdjustEdges:
-                if (_startPoint.Value.Y < _endPoint.Value.Y)
-                {
-                    _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y - 1);
-                }
-                else
-                {
-                    _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y - 1);
-                }
-                break;
-        }
         StateHasChanged();
     }
 
@@ -408,14 +394,6 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
         int width = Math.Abs(_endPoint.Value.X - _startPoint.Value.X);
         int height = Math.Abs(_endPoint.Value.Y - _startPoint.Value.Y);
         var localRect = new Rectangle(x, y, width, height);
-
-        //Rectangle translatedRect = _currentMode switch
-        //{
-        //    EnumTrimViewModel.Top => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + localRect.Y, localRect.Width, localRect.Height),
-        //    EnumTrimViewModel.Bottom => new Rectangle(RegionBounds.X + localRect.X, RegionBounds.Y + RegionBounds.Height - (int)(RegionBounds.Height / ZoomLevel) + localRect.Y, localRect.Width, localRect.Height),
-        //    _ => throw new CustomBasicException("Invalid mode for confirming selection")
-        //};
-
         if (_currentMode == EnumTrimViewModel.Top)
         {
             _topRemovals.Add(localRect);
@@ -424,10 +402,8 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
         {
             _bottomRemovals.Add(localRect);
         }
-
         _startPoint = null;
         _endPoint = null;
-        //RebuildZoomedImage();
     }
     private BasicList<Rectangle> GetRemovalsForCurrentSlice
     {
@@ -438,7 +414,7 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
                 throw new CustomBasicException("No mode");
             }
             if (_currentMode == EnumTrimViewModel.Top)
-            { 
+            {
                 return _topRemovals;
             }
             if (_currentMode == EnumTrimViewModel.Bottom)
@@ -450,102 +426,80 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js)
     }
     public void ShowPreview()
     {
-        _currentMode = EnumTrimViewModel.None;
-        //has to adjust the entire region now somehow or another.
-        ClearCurrentSelection(); //obviously means needs to clear the current selection
+        if (_currentMode == EnumTrimViewModel.None)
+        {
+            return;
+        }
+        if (_startPoint.HasValue || _endPoint.HasValue)
+        {
+            return; //can't do anything because you are in the middle of something.
+        }
+        _currentMode = EnumTrimViewModel.None; // Turn off zoom mode
+        ClearCurrentSelection();
         using var bmp = _cropHelper.GetRegionBitmap(RegionBounds);
         using var g = Graphics.FromImage(bmp);
         using var brush = new SolidBrush(Color.White);
-
-        foreach (var rect in _topRemovals.Concat(_bottomRemovals))
+        var allMapped = _topRemovals
+            .Select(x => MapRemovalToFullImage(x, EnumTrimViewModel.Top))
+            .Concat(_bottomRemovals.Select(x => MapRemovalToFullImage(x, EnumTrimViewModel.Bottom)));
+        foreach (var rect in allMapped)
         {
             int localX = rect.X - RegionBounds.X;
             int localY = rect.Y - RegionBounds.Y;
             g.FillRectangle(brush, localX, localY, rect.Width, rect.Height);
         }
-
         _regionImage = ImageCropHelper.BitmapToBase64(bmp);
+        StateHasChanged();
     }
-    //private void RebuildZoomedImage()
-    //{
-    //    int trimHeight = Math.Max(1, SuggestedTrimHeight);
+    private Rectangle MapRemovalToFullImage(Rectangle removal, EnumTrimViewModel mode)
+    {
+        int trimHeight = Math.Max(1, SuggestedTrimHeight);
+        // Slice of full image shown in zoom
+        Rectangle slice = mode switch
+        {
+            EnumTrimViewModel.Top => new Rectangle(
+                RegionBounds.X,
+                RegionBounds.Y,
+                RegionBounds.Width,
+                trimHeight),
 
-    //    Rectangle slice = _currentMode switch
-    //    {
-    //        EnumTrimViewModel.Top => new Rectangle(
-    //            RegionBounds.X,
-    //            RegionBounds.Y,
-    //            RegionBounds.Width,
-    //            trimHeight),
+            EnumTrimViewModel.Bottom => new Rectangle(
+                RegionBounds.X,
+                RegionBounds.Y + RegionBounds.Height - trimHeight,
+                RegionBounds.Width,
+                trimHeight),
 
-    //        EnumTrimViewModel.Bottom => new Rectangle(
-    //            RegionBounds.X,
-    //            RegionBounds.Y + RegionBounds.Height - trimHeight,
-    //            RegionBounds.Width,
-    //            trimHeight),
+            _ => throw new CustomBasicException("Invalid mode")
+        };
 
-    //        _ => throw new CustomBasicException("Invalid mode for rebuilding image")
-    //    };
+        // Unzoomed removal inside the slice
+        int unzoomedX = (int)Math.Round(removal.X / ZoomLevel);
+        int unzoomedY = (int)Math.Round(removal.Y / ZoomLevel);
+        int unzoomedWidth = (int)Math.Round(removal.Width / ZoomLevel);
+        int unzoomedHeight = (int)Math.Round(removal.Height / ZoomLevel);
 
-    //    using var bmp = _cropHelper.GetRegionBitmap(slice);
-
-    //    // Apply white-out removal areas
-    //    using (var g = Graphics.FromImage(bmp))
-    //    using (var brush = new SolidBrush(Color.White))
-    //    {
-    //        var removals = _currentMode switch
-    //        {
-    //            EnumTrimViewModel.Top => _topRemovals,
-    //            EnumTrimViewModel.Bottom => _bottomRemovals,
-    //            _ => throw new CustomBasicException("Invalid mode for removals")
-    //        };
-
-    //        foreach (var removal in removals)
-    //        {
-    //            // Translate removal rectangle from global RegionBounds coordinates into local slice coordinates
-    //            int localX = removal.X - slice.X;
-    //            int localY = removal.Y - slice.Y;
-
-    //            Rectangle localRect = new Rectangle(localX, localY, removal.Width, removal.Height);
-
-    //            // Clamp localRect so it stays within bmp bounds
-    //            Rectangle bmpBounds = new Rectangle(0, 0, bmp.Width, bmp.Height);
-    //            Rectangle clippedRect = Rectangle.Intersect(bmpBounds, localRect);
-
-    //            if (!clippedRect.IsEmpty)
-    //            {
-    //                g.FillRectangle(brush, clippedRect);
-    //            }
-    //        }
-
-    //        //g.FillRectangle(brush, new(0, 0, 100, 100)); //check to see if i can even remove a rectangle here.
-
-    //    }
-
-    //    //  Zoom and encode
-    //    int zoomedWidth = (int)(bmp.Width * ZoomLevel);
-    //    int zoomedHeight = (int)(bmp.Height * ZoomLevel);
-
-    //    using var zoomedBmp = new Bitmap(zoomedWidth, zoomedHeight);
-    //    using (var zoomG = Graphics.FromImage(zoomedBmp))
-    //    {
-    //        zoomG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-    //        zoomG.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-    //        zoomG.DrawImage(bmp, 0, 0, zoomedWidth, zoomedHeight);
-    //    }
-
-    //    string result = ImageCropHelper.BitmapToBase64(zoomedBmp);
-
-    //    if (_currentMode == EnumTrimViewModel.Top)
-    //    {
-    //        _topImageData = result;
-    //    }
-    //    else
-    //    {
-    //        _bottomImageData = result;
-    //    }
-
-    //    StateHasChanged();
-    //}
-
+        return new Rectangle(
+            slice.X + unzoomedX,
+            slice.Y + unzoomedY,
+            unzoomedWidth,
+            unzoomedHeight);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _suppress = new(js);
+            await _suppress.DisableArrowKeysAsync();
+            await _suppress.DisableFunctionKeysAsync();
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_suppress is not null)
+        {
+            await _suppress.DisposeAsync();
+        }
+        // Add this line to suppress finalization
+        GC.SuppressFinalize(this);
+    }
 }
