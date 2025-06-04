@@ -22,6 +22,23 @@
             <div style="overflow: auto; max-width: 100%; max-height: 100%;">
                 <div style="position: relative; width: fit-content;">
                     <img src="@CurrentImage" @ref="_imageRef" style="display: block; image-rendering: pixelated;" @onclick="HandleImageClickAsync" />
+                    
+                    @if (_currentMode != EnumTrimViewModel.None)
+                    {
+                        var list = GetRemovalsForCurrentSlice;
+                        @foreach (var item in list)
+                        {
+                            <div style="
+                                position: absolute;
+                                background-color: white;
+                                left: @(item.X)px;
+                                top: @(item.Y)px;
+                                width: @(item.Width)px;
+                                height: @(item.Height)px;">
+                            </div>
+                        }
+                    }
+                    
                     @if (_startPoint.HasValue)
                     {
                         <div style="
@@ -59,22 +76,7 @@
                                             height: @(Math.Abs(_endPoint.Value.Y - _startPoint.Value.Y))px;">
                         </div>
                     }
-                    @if (_currentMode != EnumTrimViewModel.None)
-                    {
-
-                        var list = GetRemovalsForCurrentSlice;
-                        @foreach (var item in list)
-                        {
-                            <div style="
-                                position: absolute;
-                                background-color: white;
-                                left: @(item.X)px;
-                                top: @(item.Y)px;
-                                width: @(item.Width)px;
-                                height: @(item.Height)px;">
-                            </div>
-                        }
-                    }
+                    
 
                 </div>
             </div>

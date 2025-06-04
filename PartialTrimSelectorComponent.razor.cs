@@ -364,9 +364,16 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js) : IAsyncDisposa
         {
             return;
         }
-        // Always move top edge up by 1 (decreasing Y), increasing height
-        _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y - 1);
-
+        if (_currentMode == EnumTrimViewModel.Bottom)
+        {
+            // Shrink upward by moving top edge up
+            _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y - 1);
+        }
+        else if (_currentMode == EnumTrimViewModel.Top)
+        {
+            // Shrink downward by moving bottom edge up
+            _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y - 1);
+        }
         StateHasChanged();
     }
     private void DownArrowClicked()
@@ -375,9 +382,16 @@ public partial class PartialTrimSelectorComponent(IJSRuntime js) : IAsyncDisposa
         {
             return;
         }
-        // Always move top edge down by 1 (increasing Y), decreasing height
-        _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y + 1);
-
+        if (_currentMode == EnumTrimViewModel.Bottom)
+        {
+            // Expand downward by moving top edge down
+            _startPoint = new Point(_startPoint.Value.X, _startPoint.Value.Y + 1);
+        }
+        else if (_currentMode == EnumTrimViewModel.Top)
+        {
+            // Expand downward by moving bottom edge down
+            _endPoint = new Point(_endPoint.Value.X, _endPoint.Value.Y + 1);
+        }
         StateHasChanged();
     }
 
