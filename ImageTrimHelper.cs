@@ -1,7 +1,7 @@
 ﻿namespace ImageToolsWindowsLibrary;
 public static class ImageTrimHelper
 {
-    public static void CropAndTrimImage(this TwoRegionImageEntry entry, string mainImagePath,
+    public static void CropAndTrimImage(this TwoRegionImageEntry entry,
         BasicList<Rectangle> firstRegionDeletes,
         BasicList<Rectangle> secondRegionDeletes,
         string newPath,
@@ -9,11 +9,11 @@ public static class ImageTrimHelper
         Color? trimFillColor = null
         )
     {
-        if (!File.Exists(mainImagePath))
+        if (!File.Exists(entry.ImageFile))
         {
-            throw new FileNotFoundException("Main image file not found", mainImagePath);
+            throw new FileNotFoundException("Main image file not found", entry.ImageFile);
         }
-        using var original = new Bitmap(mainImagePath);
+        using var original = new Bitmap(entry.ImageFile);
         // Crop and trim first region
         using var firstCropped = original.Clone(entry.FirstRegion!.Value, original.PixelFormat);
         using var g1 = Graphics.FromImage(firstCropped);
