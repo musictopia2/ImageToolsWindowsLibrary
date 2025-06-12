@@ -1,0 +1,20 @@
+﻿@ChildContent
+@if (LayoutMode == EnumRegionLayoutMode.Landscape)
+{
+    <StackLayout>
+        @foreach (var item in Regions)
+        {
+            <StackItem>
+                <img style="max-width: 100%; display: block;" src="@GetRegionImageBase64(item)" />
+
+            </StackItem>
+        }
+    </StackLayout>
+}
+else
+{
+    @foreach (var item in Regions)
+    {
+        <img style="max-width: 100%; display: block;" src="@GetRegionImageBase64(item)" />
+    }
+}
