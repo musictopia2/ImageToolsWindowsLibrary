@@ -216,8 +216,8 @@ public partial class HighlightRegionsSelectorComponent(IJSRuntime js, IToast toa
         {
             _lastImagePath = _desiredImagePath;
             _cropHelper.LoadImage(_desiredImagePath);
-            ImageData = GetRegionImageBase64(Bounds); //i think.
         }
+        ImageData = GetRegionImageBase64(Bounds); //i think.
         PossibleAutomateRepeatedRegions();
     }
     private void PossibleAutomateRepeatedRegions()
