@@ -130,4 +130,69 @@ public static class ImageTrimHelper
         // Save the resulting image
         cropped.Save(newPath);
     }
+
+    /// <summary>
+    /// Loads an image from mainImagePath, crops to desiredRegion,
+    /// applies trims (fills) from deletedList relative to desiredRegion,
+    /// overlays highlightedRegions with semi-transparent blue,
+    /// and saves the cleaned image to newPath.
+    /// </summary>
+    public static void CropTrimAndHighlightImage(
+        this Rectangle desiredRegion,
+        string mainImagePath,
+        BasicList<Rectangle> deletedList,
+        BasicList<Rectangle> highlightedRegions,
+        string newPath,
+        Color? trimFillColor = null)
+    {
+        if (!File.Exists(mainImagePath))
+        {
+            throw new FileNotFoundException("Main image file not found", mainImagePath);
+        }
+
+        using var original = new Bitmap(mainImagePath);
+
+        // Crop the image to the desired region
+        using var cropped = original.Clone(desiredRegion, original.PixelFormat);
+
+        using var g = Graphics.FromImage(cropped);
+
+        // Fill deleted areas (trims)
+        using var trimBrush = new SolidBrush(trimFillColor ?? Color.White);
+
+        foreach (var trimRect in deletedList)
+        {
+            var adjustedTrim = new Rectangle(
+                trimRect.X - desiredRegion.X,
+                trimRect.Y - desiredRegion.Y,
+                trimRect.Width,
+                trimRect.Height);
+
+            g.FillRectangle(trimBrush, adjustedTrim);
+        }
+
+        // Draw highlighted areas with 15% opacity blue
+        using var highlightBrush = new SolidBrush(Color.FromArgb(38, 0, 0, 255)); // 38 = ~15% alpha
+
+        foreach (var highlightRect in highlightedRegions)
+        {
+            var adjustedHighlight = new Rectangle(
+                highlightRect.X - desiredRegion.X,
+                highlightRect.Y - desiredRegion.Y,
+                highlightRect.Width,
+                highlightRect.Height);
+
+            g.FillRectangle(highlightBrush, adjustedHighlight);
+        }
+
+        // Ensure directory exists
+        var dir = Path.GetDirectoryName(newPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        cropped.Save(newPath);
+    }
+
 }
