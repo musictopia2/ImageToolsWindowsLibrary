@@ -1,0 +1,133 @@
+﻿@ChildContent
+<div style="position: relative; display: inline-block;">
+    <img src="@ImageData" style="max-width: 100%; display: block;" @onmousedown="HandleClick" />
+    @if (StartPoint.HasValue)
+    {
+        <div style="
+                                    position: absolute;
+                                    width: 8px;
+                                    height: 8px;
+                                    background: red;
+                                    border-radius: 4px;
+                                    left: @(StartPoint.Value.X - 4)px;
+                                    top: @(StartPoint.Value.Y - 4)px;">
+        </div>
+    }
+
+    @if (EndPoint.HasValue)
+    {
+        <div style="
+                                    position: absolute;
+                                    width: 8px;
+                                    height: 8px;
+                                    background: blue;
+                                    border-radius: 4px;
+                                    left: @(EndPoint.Value.X - 4)px;
+                                    top: @(EndPoint.Value.Y - 4)px;">
+        </div>
+    }
+    @if (!_currentRegion.IsEmpty)
+    {
+        string color = GetHighlightColor(_currentRegion);
+        <div style="
+            position: absolute;
+            background-color: @color
+            left: @(Math.Min(_currentRegion.X, _currentRegion.X + _currentRegion.Width))px;
+            top: @(Math.Min(_currentRegion.Y, _currentRegion.Y + _currentRegion.Height))px;
+            width: @(Math.Abs(_currentRegion.Width))px;
+            height: @(Math.Abs(_currentRegion.Height))px;">
+        </div>
+    }
+    @foreach (var item in _regions)
+    {
+        @if (IsProperRectangleEqual(item, _currentRegion) == false)
+        {
+            string color = GetHighlightColor(item);
+            <div style="
+                    position: absolute;
+                    background-color: @color
+                    left: @(Math.Min(item.X, item.X + item.Width))px;
+                    top: @(Math.Min(item.Y, item.Y + item.Height))px;
+                    width: @(Math.Abs(item.Width))px;
+                    height: @(Math.Abs(item.Height))px;">
+            </div>
+        }
+    }
+</div>
+<GridContainer Columns="auto 150px 1fr" Width="90vw">
+    <div>
+        <div>
+            <PrimaryButton OnClick="() => ClearSelection(true)">
+                Clear
+            </PrimaryButton>
+        </div>
+        
+        @if (PreviousHighlightRegion.IsEmpty == false && _alreadySuggested == false)
+        {
+            <div>
+                F7 To Highlight Suggested Region
+            </div>
+        }
+    </div>
+    <div>
+        @if (_currentRegion.IsEmpty == false)
+        {
+            <div>
+                Selection Mode
+                @GetModeSvgIcon(_currentMode)
+            </div>
+        }
+    </div>
+    <div>
+        @if (_currentRegion.IsEmpty == false)
+        {
+            <div>
+                F1 For Move
+            </div>
+            <div>
+                F2 For Resize
+            </div>
+            <div>
+                F3 For Adjust Edges
+            </div>
+            <div>
+                F4 To Start New Region
+            </div>
+            @if (_alreadyRepeated == false)
+            {
+                <div>
+                    F5 To Show Current Region As Repeating
+                </div>
+            }
+            <div>
+                F6 For Completing Regions For Highlighting
+            </div>
+        }
+    </div>
+</GridContainer>
+@code {
+    private RenderFragment GetModeSvgIcon(EnumAdjustmentMode mode) => mode switch
+    {
+
+        EnumAdjustmentMode.Move => builder =>
+    {
+        builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M4 8V4m0 0h4M4 4l7.5 7.5M20 16v4m0 0h-4m4 0l-7.5-7.5"" />
+</svg>");
+    }
+        ,
+        EnumAdjustmentMode.Resize => builder =>
+        {
+            builder.AddMarkupContent(0, ResizeIcon());
+        }
+        ,
+        EnumAdjustmentMode.AdjustEdges => builder =>
+        {
+            builder.AddMarkupContent(0, @"<svg xmlns=""http://www.w3.org/2000/svg"" fill=""none"" viewBox=""0 0 24 24"" stroke=""blue"" stroke-width=""2"" width=""24"" height=""24"">
+  <path stroke-linecap=""round"" stroke-linejoin=""round"" d=""M12 4v16m8-8H4"" />
+</svg>");
+        }
+        ,
+        _ => builder => { }
+    };
+}

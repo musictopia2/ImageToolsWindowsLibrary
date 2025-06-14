@@ -8,3 +8,4 @@ global using System.Drawing.Imaging;
 global using WindowsKeyboardCapture;
 global using BasicBlazorLibrary.BasicJavascriptClasses;
 global using CommonBasicLibraries.CollectionClasses;
+global using CommonBasicLibraries.BasicUIProcesses;
