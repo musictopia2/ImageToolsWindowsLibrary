@@ -131,19 +131,13 @@ public static class ImageTrimHelper
         cropped.Save(newPath);
     }
 
-    /// <summary>
-    /// Loads an image from mainImagePath, crops to desiredRegion,
-    /// applies trims (fills) from deletedList relative to desiredRegion,
-    /// overlays highlightedRegions with semi-transparent blue,
-    /// and saves the cleaned image to newPath.
-    /// </summary>
     public static void CropTrimAndHighlightImage(
-        this Rectangle desiredRegion,
-        string mainImagePath,
-        BasicList<Rectangle> deletedList,
-        BasicList<Rectangle> highlightedRegions,
-        string newPath,
-        Color? trimFillColor = null)
+    this Rectangle desiredRegion,
+    string mainImagePath,
+    BasicList<Rectangle> deletedList,
+    BasicList<Rectangle> highlightedRegions,
+    string newPath,
+    Color? trimFillColor = null)
     {
         if (!File.Exists(mainImagePath))
         {
@@ -151,41 +145,48 @@ public static class ImageTrimHelper
         }
 
         using var original = new Bitmap(mainImagePath);
-
-        // Crop the image to the desired region
         using var cropped = original.Clone(desiredRegion, original.PixelFormat);
-
         using var g = Graphics.FromImage(cropped);
 
-        // Fill deleted areas (trims)
         using var trimBrush = new SolidBrush(trimFillColor ?? Color.White);
+        using var highlightBrush = new SolidBrush(Color.FromArgb(38, 0, 0, 255)); // 15% blue
 
+        // Fill deleted (trim) areas
         foreach (var trimRect in deletedList)
         {
-            var adjustedTrim = new Rectangle(
+            var adjusted = new Rectangle(
                 trimRect.X - desiredRegion.X,
                 trimRect.Y - desiredRegion.Y,
                 trimRect.Width,
                 trimRect.Height);
 
-            g.FillRectangle(trimBrush, adjustedTrim);
+            g.FillRectangle(trimBrush, adjusted);
         }
 
-        // Draw highlighted areas with 15% opacity blue
-        using var highlightBrush = new SolidBrush(Color.FromArgb(38, 0, 0, 255)); // 38 = ~15% alpha
+        // Track pixels already highlighted
+        bool[,] paintedMask = new bool[cropped.Width, cropped.Height];
 
-        foreach (var highlightRect in highlightedRegions)
+        foreach (var rect in highlightedRegions)
         {
-            var adjustedHighlight = new Rectangle(
-                highlightRect.X - desiredRegion.X,
-                highlightRect.Y - desiredRegion.Y,
-                highlightRect.Width,
-                highlightRect.Height);
+            //var adjusted = new Rectangle(
+            //    rect.X - desiredRegion.X,
+            //    rect.Y - desiredRegion.Y,
+            //    rect.Width,
+            //    rect.Height);
 
-            g.FillRectangle(highlightBrush, adjustedHighlight);
+            for (int x = Math.Max(0, rect.Left); x < Math.Min(cropped.Width, rect.Right); x++)
+            {
+                for (int y = Math.Max(0, rect.Top); y < Math.Min(cropped.Height, rect.Bottom); y++)
+                {
+                    if (!paintedMask[x, y])
+                    {
+                        cropped.SetPixel(x, y, BlendColor(cropped.GetPixel(x, y), Color.FromArgb(38, 0, 0, 255)));
+                        paintedMask[x, y] = true;
+                    }
+                }
+            }
         }
 
-        // Ensure directory exists
         var dir = Path.GetDirectoryName(newPath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
         {
@@ -194,5 +195,14 @@ public static class ImageTrimHelper
 
         cropped.Save(newPath);
     }
+    private static Color BlendColor(Color baseColor, Color overlayColor)
+    {
+        float alpha = overlayColor.A / 255f;
 
+        int r = (int)(overlayColor.R * alpha + baseColor.R * (1 - alpha));
+        int g = (int)(overlayColor.G * alpha + baseColor.G * (1 - alpha));
+        int b = (int)(overlayColor.B * alpha + baseColor.B * (1 - alpha));
+
+        return Color.FromArgb(baseColor.A, r, g, b);
+    }
 }
