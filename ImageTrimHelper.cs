@@ -180,7 +180,7 @@ public static class ImageTrimHelper
                 {
                     if (!paintedMask[x, y])
                     {
-                        cropped.SetPixel(x, y, BlendColor(cropped.GetPixel(x, y), Color.FromArgb(38, 0, 0, 255)));
+                        cropped.SetPixel(x, y, BlendColor(cropped.GetPixel(x, y), Color.FromArgb(20, 0, 0, 255)));
                         paintedMask[x, y] = true;
                     }
                 }
