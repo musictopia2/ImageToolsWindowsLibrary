@@ -149,7 +149,7 @@ public static class ImageTrimHelper
         using var g = Graphics.FromImage(cropped);
 
         using var trimBrush = new SolidBrush(trimFillColor ?? Color.White);
-        using var highlightBrush = new SolidBrush(Color.FromArgb(38, 0, 0, 255)); // 15% blue
+        using var highlightBrush = new SolidBrush(Color.FromArgb(20, 0, 0, 255)); // originally specified 15 percent blue (38) but realized had to be even less.
 
         // Fill deleted (trim) areas
         foreach (var trimRect in deletedList)
