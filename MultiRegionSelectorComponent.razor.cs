@@ -23,7 +23,7 @@ public partial class MultiRegionSelectorComponent(IJSRuntime js) : IAsyncDisposa
     private Rectangle _currentRegion = new();
     private readonly ImageCropHelper _cropHelper = new();
     private AppKeyboardListener? _keys;
-    private bool _choseLast;
+    //private bool _choseLast;
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public static System.Windows.Window? MainWindow { get; set; }
     protected override void OnInitialized()
@@ -246,7 +246,7 @@ public partial class MultiRegionSelectorComponent(IJSRuntime js) : IAsyncDisposa
         _completed = false;
         _regions.Clear();
         EndPoint = null;
-        _choseLast = false;
+        //_choseLast = false;
         if (SelectEdgesOnly)
         {
             _currentMode = EnumAdjustmentMode.Resize;
